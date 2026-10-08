@@ -1,0 +1,59 @@
+<script setup>
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import AppIcon from './AppIcon.vue'
+
+const route = useRoute()
+const router = useRouter()
+const query = ref('')
+
+const section = computed(() => route.meta.section || 'Discover')
+const navItems = [
+  { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
+  { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
+  { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
+  { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages', badge: 4 },
+  { to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' },
+]
+
+function search() {
+  const value = query.value.trim()
+  if (value) router.push({ path: '/home_page', query: { q: value } })
+}
+</script>
+
+<template>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <RouterLink class="brand" to="/home_page" aria-label="Ratemate home">
+        <span class="brand-icon">r<span>·</span></span>ratemate<span class="brand-dot">.</span>
+      </RouterLink>
+      <nav aria-label="Main navigation">
+        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="nav-item" :class="{ active: section === item.section }">
+          <AppIcon :name="item.icon" />
+          <span>{{ item.label }} <span v-if="item.badge" class="message-badge">{{ item.badge }}</span></span>
+        </RouterLink>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="preview-label"><span />Local preview</div>
+        <RouterLink class="profile" to="/profile">
+          <span class="avatar">J</span>
+          <div><strong>jamie_parker</strong><small>Your personal space</small></div>
+          <AppIcon name="chevron" />
+        </RouterLink>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <span class="breadcrumb">Community <span>/</span> <strong>{{ route.meta.title || section }}</strong></span>
+        <form class="search" role="search" @submit.prevent="search">
+          <AppIcon name="search" />
+          <input v-model="query" aria-label="Search templates" placeholder="Search templates, interests, and more" maxlength="200">
+          <button type="submit" aria-label="Search"><AppIcon name="search" /></button>
+        </form>
+        <RouterLink class="avatar top-avatar" to="/profile" aria-label="Open personal space">J</RouterLink>
+      </header>
+      <main><slot /></main>
+    </div>
+  </div>
+</template>
