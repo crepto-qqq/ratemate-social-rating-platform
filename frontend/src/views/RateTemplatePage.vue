@@ -1,9 +1,10 @@
 <script setup>
+import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import AppLayout from '../components/AppLayout.vue'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+
 const mode = ref('new')
 const step = ref(1)
 const activeTemplate = ref(null)
@@ -67,7 +68,7 @@ async function loadFavorites() {
   favoritesLoading.value = true
   favoritesError.value = ''
   try {
-    const response = await fetch(`${apiBaseUrl}/api/templates/favorites/`)
+    const response = await apiFetch(`${apiBaseUrl}/api/templates/favorites/`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load your favorites.')
     favoriteTemplates.value = data.templates || []
@@ -109,7 +110,7 @@ async function saveResult() {
   saveError.value = ''
   const endpoint = editingResultId.value ? `/api/ratings/${editingResultId.value}/` : '/api/ratings/'
   try {
-    const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+    const response = await apiFetch(`${apiBaseUrl}${endpoint}`, {
       method: editingResultId.value ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(resultPayload()),
@@ -139,7 +140,7 @@ async function loadResults() {
   resultsLoading.value = true
   resultsError.value = ''
   try {
-    const response = await fetch(`${apiBaseUrl}/api/ratings/`)
+    const response = await apiFetch(`${apiBaseUrl}/api/ratings/`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load your rating results.')
     results.value = Array.isArray(data) ? data : data.results || []
@@ -166,7 +167,7 @@ function editResult(result) {
 }
 
 async function updateVisibility(result, value) {
-  const response = await fetch(`${apiBaseUrl}/api/ratings/${result.id}/`, {
+  const response = await apiFetch(`${apiBaseUrl}/api/ratings/${result.id}/`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ isPublic: value }),
@@ -202,7 +203,7 @@ async function deleteResult(result) {
   if (!window.confirm(`Delete the rating for “${result.template.title}”?`)) return
   result.actionError = ''
   try {
-    const response = await fetch(`${apiBaseUrl}/api/ratings/${result.id}/`, { method: 'DELETE' })
+    const response = await apiFetch(`${apiBaseUrl}/api/ratings/${result.id}/`, { method: 'DELETE' })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to delete this result.')
     results.value = results.value.filter(entry => entry.id !== result.id)

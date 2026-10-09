@@ -1,8 +1,9 @@
 <script setup>
+import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+
 const emptyProfile = { username: '', email: '', bio: '', avatarUrl: '' }
 const profile = reactive({ ...emptyProfile, password: '', passwordConfirm: '' })
 const savedProfile = reactive({ ...emptyProfile })
@@ -31,7 +32,7 @@ async function loadProfile() {
   loading.value = true
   loadError.value = ''
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/profile/`)
+    const response = await apiFetch(`${apiBaseUrl}/api/auth/profile/`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load your profile.')
     applyProfile(data)
@@ -92,7 +93,7 @@ async function save() {
   saving.value = true
   status.value = 'Saving changes…'
   try {
-    const response = await fetch(`${apiBaseUrl}/api/auth/profile/`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/auth/profile/`, {
       method: 'POST',
       body: formData,
     })
