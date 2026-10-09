@@ -1,8 +1,9 @@
 <script setup>
+import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, reactive, ref } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+
 const step = ref(1)
 const criteriaLocked = ref(false)
 const saving = ref(false)
@@ -89,7 +90,7 @@ async function saveTemplate() {
 
   saving.value = true
   try {
-    const response = await fetch(`${apiBaseUrl}/api/templates/`, {
+    const response = await apiFetch(`${apiBaseUrl}/api/templates/`, {
       method: 'POST',
       body: formData,
     })

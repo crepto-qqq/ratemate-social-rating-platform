@@ -1,4 +1,5 @@
 <script setup>
+import { apiBaseUrl, apiFetch } from './api.js'
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -9,12 +10,7 @@ const message = ref('')
 const messageType = ref('')
 const form = reactive({ username: '', password: '', passwordConfirm: '' })
 
-// 这行代码没有什么新的东西，只是因为fetch中需要经常写后端地址，所以把后端地址存入一个变量中
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
-// 每个vue文件都需要给后端发请求，既然这样，为什么不在app.vue中写一个全局的apiBaseUrl呢？
-// 因为app.vue是整个应用的根组件，里面没有任何逻辑，放在这里不合适。
-// 放在main.js中也不合适，因为main.js是整个应用的入口文件，里面也没有任何逻辑。
-// 放在loginPage.vue中也不合适，因为loginPage.vue只是登录页面，其他页面也需要发请求。最后决定放在一个单独的文件中，这样既方便管理，又不会影响其他文件。
+
 
 function switchMode(nextMode) {
   mode.value = nextMode
@@ -33,10 +29,9 @@ async function submitForm() {
   loading.value = true
   const endpoint = mode.value === 'login' ? '/api/auth/login/' : '/api/auth/register/'
   try {
-    const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+    const response = await apiFetch(`${apiBaseUrl}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // 允许跨域请求携带cookie
       body: JSON.stringify({ username: form.username, password: form.password }),
     }) // 发出一个请求，向后端发送用户名和密码，后端会返回一个响应，这个响应存在于response变量中
     const data = await response.json().catch(() => ({})) // 解析响应的JSON数据，如果解析失败，就返回一个空对象

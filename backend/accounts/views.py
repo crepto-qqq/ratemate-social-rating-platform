@@ -2,9 +2,17 @@ import json
 
 from django.contrib.auth import authenticate, get_user_model, login
 from django.http import JsonResponse
+from django.middleware.csrf import get_token
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import User_profile
+
+
+@never_cache
+@require_http_methods(['GET'])
+def csrf_view(request):
+    return JsonResponse({'csrfToken': get_token(request)})
 
 
 def _read_credentials(request):
