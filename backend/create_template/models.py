@@ -126,3 +126,15 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f'{self.user.userName} - {self.template.title}'
+
+
+class Comment(models.Model):
+    template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User_profile, on_delete=models.CASCADE, related_name='comments')
+    content = models.CharField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        indexes = [models.Index(fields=['template', '-created_at', '-id'], name='comment_template_newest')]
