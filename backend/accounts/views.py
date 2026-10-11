@@ -2,11 +2,12 @@ import json
 
 from django.contrib.auth import authenticate, get_user_model, login
 from django.http import JsonResponse
+from django.db import transaction
 from django.middleware.csrf import get_token
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .models import User_profile
+from .profiles import current_profile, ensure_profile
 
 
 @never_cache
@@ -70,7 +71,9 @@ def register_view(request):
     if User.objects.filter(username=username).exists():
         return JsonResponse({'detail': '该用户名已被使用。'}, status=409)
 
-    User.objects.create_user(username=username, password=password)
+    with transaction.atomic():
+        user = User.objects.create_user(username=username, password=password)
+        ensure_profile(user)
     return JsonResponse({'message': '注册成功，请登录。'}, status=201)
 
 
@@ -103,15 +106,7 @@ def _profile_response(request, profile):
 
 
 def _current_profile(request):
-    user = getattr(request, 'user', None)
-    if not user or not user.is_authenticated:
-        return None
-
-    if user.email:
-        profile = User_profile.objects.filter(email=user.email).first()
-        if profile:
-            return profile
-    return User_profile.objects.filter(userName=user.username).first()
+    return current_profile(request)
 
 
 @require_http_methods(['GET', 'POST'])

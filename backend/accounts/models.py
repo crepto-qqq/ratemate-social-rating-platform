@@ -1,9 +1,17 @@
 # accounts/models.py
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 
 
 class User_profile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ratemate_profile',
+        null=True,
+        blank=True,
+    )
     id = models.BigAutoField(primary_key=True)
     userName = models.CharField(max_length=30, unique=False,null=False, verbose_name="用户名")
     email = models.EmailField(unique=True, verbose_name="注册邮箱")

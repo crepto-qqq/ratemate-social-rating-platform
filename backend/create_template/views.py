@@ -5,20 +5,13 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
-from accounts.models import User_profile
+from accounts.profiles import current_profile
 
 from .models import Criterion, Favorite, Item, Template
 
 
 def _current_owner(request):
-    user = getattr(request, 'user', None)
-    if not user or not user.is_authenticated:
-        return None
-    if user.email:
-        owner = User_profile.objects.filter(email=user.email).first()
-        if owner:
-            return owner
-    return User_profile.objects.filter(userName=user.username).first()
+    return current_profile(request)
 
 
 def _read_json_field(request, field_name):
