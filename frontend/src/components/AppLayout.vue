@@ -1,18 +1,22 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
+import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
 
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
+const profileName = computed(() => currentProfile.value?.userName || (profileLoading.value ? 'Loading…' : 'Profile unavailable'))
+const profileInitial = computed(() => currentProfile.value?.userName?.trim().charAt(0).toUpperCase() || '?')
+onMounted(loadCurrentProfile)
 
 const section = computed(() => route.meta.section || 'Discover')
 const navItems = [
   { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
   { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
   { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
-  { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages', badge: 4 },
+  { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages' },
   { to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' },
 ]
 
@@ -31,14 +35,13 @@ function search() {
       <nav aria-label="Main navigation">
         <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="nav-item" :class="{ active: section === item.section }">
           <AppIcon :name="item.icon" />
-          <span>{{ item.label }} <span v-if="item.badge" class="message-badge">{{ item.badge }}</span></span>
+          <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
       <div class="sidebar-bottom">
-        <div class="preview-label"><span />Local preview</div>
         <RouterLink class="profile" to="/profile">
-          <span class="avatar">J</span>
-          <div><strong>jamie_parker</strong><small>Your personal space</small></div>
+          <span class="avatar"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></span>
+          <div><strong>{{ profileName }}</strong><small>{{ profileError || 'Your personal space' }}</small></div>
           <AppIcon name="chevron" />
         </RouterLink>
       </div>
@@ -48,12 +51,17 @@ function search() {
         <span class="breadcrumb">Community <span>/</span> <strong>{{ route.meta.title || section }}</strong></span>
         <form class="search" role="search" @submit.prevent="search">
           <AppIcon name="search" />
-          <input v-model="query" aria-label="Search templates" placeholder="Search templates, interests, and more" maxlength="200">
+          <input v-model="query" aria-label="Search templates" placeholder="Search templates and authors" maxlength="200">
           <button type="submit" aria-label="Search"><AppIcon name="search" /></button>
         </form>
-        <RouterLink class="avatar top-avatar" to="/profile" aria-label="Open personal space">J</RouterLink>
+        <RouterLink class="avatar top-avatar" to="/profile" aria-label="Open personal space"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></RouterLink>
       </header>
       <main><slot /></main>
     </div>
   </div>
 </template>
+
+<style scoped>
+.avatar { overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+</style>

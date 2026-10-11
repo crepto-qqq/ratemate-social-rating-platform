@@ -29,6 +29,11 @@ def _template_data(request, template, is_favorite=True):
         'description': template.description,
         'popularity': template.popularity,
         'isFavorite': is_favorite,
+        'author': {
+            'id': template.owner_id,
+            'name': template.owner.userName,
+            'avatarUrl': request.build_absolute_uri(template.owner.avatar.url) if template.owner.avatar else '',
+        },
         'criteria': [
             {'id': criterion.id, 'name': criterion.name, 'weight': criterion.weight}
             for criterion in template.criteria.all()
@@ -44,8 +49,18 @@ def _template_data(request, template, is_favorite=True):
     }
 
 
-@require_POST
+@require_http_methods(['GET', 'POST'])
 def create_template_view(request):
+    if request.method == 'GET':
+        viewer = _current_owner(request)
+        favorite_ids = set(Favorite.objects.filter(user=viewer).values_list('template_id', flat=True)) if viewer else set()
+        templates = Template.objects.select_related('owner').prefetch_related(
+            'criteria', 'items', 'favorite_records',
+        ).order_by('-created_at', '-id')
+        return JsonResponse({'templates': [
+            _template_data(request, template, template.id in favorite_ids)
+            for template in templates
+        ]})
     owner = _current_owner(request)
     if owner is None:
         return JsonResponse({'detail': '未找到当前用户。'}, status=404)
@@ -114,6 +129,17 @@ def create_template_view(request):
         },
         status=201,
     )
+
+
+@require_http_methods(['GET'])
+def template_detail_view(request, template_id):
+    template = get_object_or_404(
+        Template.objects.select_related('owner').prefetch_related('criteria', 'items', 'favorite_records'),
+        pk=template_id,
+    )
+    viewer = _current_owner(request)
+    is_favorite = Favorite.objects.filter(user=viewer, template=template).exists() if viewer else False
+    return JsonResponse(_template_data(request, template, is_favorite))
 
 
 @require_http_methods(['GET'])

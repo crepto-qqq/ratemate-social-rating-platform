@@ -2,6 +2,7 @@
 import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import { currentProfile } from '../currentProfile.js'
 
 
 const emptyProfile = { username: '', email: '', bio: '', avatarUrl: '' }
@@ -17,6 +18,7 @@ const error = ref('')
 const avatarInitial = computed(() => profile.username.trim().charAt(0).toUpperCase() || '?')
 
 function applyProfile(data) {
+  currentProfile.value = data
   const latest = {
     username: data.userName ?? '',
     email: data.email ?? '',

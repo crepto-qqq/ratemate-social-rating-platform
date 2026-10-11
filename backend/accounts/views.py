@@ -99,7 +99,7 @@ def _profile_response(request, profile):
     return {
         'id': profile.id,
         'userName': profile.userName,
-        'email': profile.email,
+        'email': '' if profile.email.endswith('@profiles.invalid') else profile.email,
         'avatarUrl': avatar_url,
         'bio': profile.bio,
     }

@@ -1,5 +1,6 @@
 <script setup>
 import { apiBaseUrl, apiFetch } from './api.js'
+import { currentProfile } from './currentProfile.js'
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -40,6 +41,7 @@ async function submitForm() {
     messageType.value = 'success'
     message.value = data.message || (mode.value === 'login' ? '登录成功！' : '注册成功，请登录。')
     if (mode.value === 'login') {
+      currentProfile.value = null
       await router.push('/home_page')
       // 登录成功后跳转到首页（通过router.push 实现页面跳转）
     } else {
