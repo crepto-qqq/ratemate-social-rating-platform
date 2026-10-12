@@ -7,9 +7,13 @@ import MessagesPage from '../views/MessagesPage.vue'
 import ProfilePage from '../views/ProfilePage.vue'
 import RateTemplatePage from '../views/RateTemplatePage.vue'
 import TemplateDetailPage from '../views/TemplateDetailPage.vue'
+import PublicRatingPage from '../views/PublicRatingPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(to, from, savedPosition) {
+    return savedPosition || { top: 0 }
+  },
   routes: [
     {
       path: '/',
@@ -24,6 +28,11 @@ const router = createRouter({
       path: '/home_page',
       component: HomePage,
       meta: { title: 'Discover', section: 'Discover' },
+    },
+    {
+      path: '/ratings/:id',
+      component: PublicRatingPage,
+      meta: { title: 'Community rating', section: 'Discover' },
     },
     {
       path: '/templates/:id',
