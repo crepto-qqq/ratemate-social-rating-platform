@@ -5,7 +5,7 @@ import AppLayout from '../components/AppLayout.vue'
 
 
 const step = ref(1)
-const criteriaLocked = ref(false)
+const weightErrors = reactive({})
 const saving = ref(false)
 const error = ref('')
 const createdTemplate = ref(null)
@@ -20,11 +20,42 @@ const steps = ['Template details', 'Rating criteria', 'Items to rate']
 const readyToSave = computed(() => draft.items.length > 0 && draft.items.every(item => item.name.trim() && item.image))
 
 function addCriterion() {
-  if (!criteriaLocked.value) draft.criteria.push({ id: crypto.randomUUID(), name: '', weight: 1 })
+  draft.criteria.push({ id: crypto.randomUUID(), name: '', weight: 1 })
 }
 
 function removeCriterion(id) {
-  if (!criteriaLocked.value) draft.criteria = draft.criteria.filter(item => item.id !== id)
+  draft.criteria = draft.criteria.filter(item => item.id !== id)
+  delete weightErrors[id]
+}
+
+function updateWeight(criterion, event) {
+  const value = event.target.value
+  if (!/^\d*$/.test(value)) {
+    event.target.value = String(criterion.weight)
+    weightErrors[criterion.id] = 'Use a whole number from 1 to 10. Decimals are not allowed.'
+    return
+  }
+  criterion.weight = value === '' ? '' : Number(value)
+  weightErrors[criterion.id] = Number.isInteger(criterion.weight) && criterion.weight >= 1 && criterion.weight <= 10
+    ? '' : 'Enter a whole number from 1 to 10.'
+}
+
+function validateCriteria() {
+  if (!draft.criteria.length || draft.criteria.some(item => !item.name.trim())) {
+    error.value = 'Add at least one named rating criterion.'
+    return false
+  }
+  if (draft.criteria.some(item => weightErrors[item.id] || !Number.isInteger(item.weight) || item.weight < 1 || item.weight > 10)) {
+    error.value = 'Every weight must be a whole number from 1 to 10.'
+    return false
+  }
+  return true
+}
+
+function goBack(targetStep) {
+  if (saving.value || createdTemplate.value || targetStep < 1 || targetStep >= step.value) return
+  error.value = ''
+  step.value = targetStep
 }
 
 function addItem() {
@@ -62,16 +93,22 @@ function continueToCriteria() {
 
 function confirmCriteria() {
   error.value = ''
-  if (!draft.criteria.length || draft.criteria.some(item => !item.name.trim())) {
-    error.value = 'Add at least one named rating criterion.'
-    return
-  }
-  criteriaLocked.value = true
+  if (!validateCriteria()) return
   step.value = 3
 }
 
 async function saveTemplate() {
+  if (saving.value || createdTemplate.value) return
   error.value = ''
+  if (!draft.title.trim()) {
+    step.value = 1
+    error.value = 'Enter a template name before saving.'
+    return
+  }
+  if (!validateCriteria()) {
+    step.value = 2
+    return
+  }
   if (!readyToSave.value) {
     error.value = 'Every item needs both a name and an image.'
     return
@@ -117,11 +154,11 @@ async function saveTemplate() {
 
     <div class="editor-top">
       <span class="state-badge">New template</span>
-      <span class="save-status">{{ criteriaLocked ? 'Criteria locked' : 'Not saved' }}</span>
+      <span class="save-status">{{ createdTemplate ? 'Saved' : 'Not saved' }}</span>
     </div>
 
     <div class="editor-steps" aria-label="Template creation steps">
-      <button v-for="(label, index) in steps" :key="label" type="button" :aria-current="step === index + 1 ? 'step' : undefined" disabled>
+      <button v-for="(label, index) in steps" :key="label" type="button" :aria-current="step === index + 1 ? 'step' : undefined" :disabled="index + 1 >= step || saving || Boolean(createdTemplate)" @click="goBack(index + 1)">
         <span>{{ index + 1 }}</span>{{ label }}
       </button>
     </div>
@@ -145,17 +182,17 @@ async function saveTemplate() {
 
       <template v-else-if="step === 2">
         <h1>Define the rating criteria</h1>
-        <p class="editor-description">Once confirmed, these criteria cannot be changed.</p>
+        <p class="editor-description">You can return to edit criteria before saving. Criteria are locked once the template is saved.</p>
         <div class="editor-section-heading">
           <h2>Rating criteria <span>{{ draft.criteria.length }}</span></h2>
           <button class="action-button" type="button" @click="addCriterion">+ Add criterion</button>
         </div>
-        <p class="editor-hint">Weights control how strongly each criterion affects a future rating.</p>
+        <p class="editor-hint">Weights control how strongly each criterion affects a future rating. Use whole numbers from 1 to 10.</p>
         <div class="editable-list">
           <div v-for="(criterion, index) in draft.criteria" :key="criterion.id" class="criterion-editor">
             <span class="row-number">{{ index + 1 }}</span>
             <label class="editor-field">Criterion<input v-model="criterion.name" maxlength="100" placeholder="e.g. Flavor"></label>
-            <label class="editor-field">Weight<input v-model.number="criterion.weight" type="number" min="1" max="10"></label>
+            <label class="editor-field">Weight<input :value="criterion.weight" type="text" inputmode="numeric" pattern="[0-9]+" :aria-invalid="Boolean(weightErrors[criterion.id])" :aria-describedby="weightErrors[criterion.id] ? `weight-error-${criterion.id}` : undefined" @input="updateWeight(criterion, $event)"><small v-if="weightErrors[criterion.id]" :id="`weight-error-${criterion.id}`" class="weight-error" role="alert">{{ weightErrors[criterion.id] }}</small></label>
             <button class="remove-button" type="button" aria-label="Remove criterion" @click="removeCriterion(criterion.id)">×</button>
           </div>
         </div>
@@ -184,7 +221,7 @@ async function saveTemplate() {
       <p v-if="error" class="template-error" role="alert">{{ error }}</p>
 
       <div class="editor-bottom">
-        <button v-if="step === 2" class="action-button" type="button" @click="step = 1">Back</button>
+        <button v-if="step > 1" class="action-button" type="button" :disabled="saving" @click="goBack(step - 1)">Back</button>
         <span v-else>Step {{ step }} of {{ steps.length }}</span>
         <button v-if="step === 1" class="action-button primary" type="button" @click="continueToCriteria">Continue</button>
         <button v-else-if="step === 2" class="action-button primary" type="button" @click="confirmCriteria">Confirm criteria</button>
@@ -200,6 +237,7 @@ async function saveTemplate() {
 .item-image-upload img { width: 100%; height: 100%; object-fit: cover; }
 .item-image-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .template-error { margin: 22px 0 0; color: #a74842; font-size: 13px; }
+.weight-error { color: #a74842; font-size: 12px; font-weight: 400; }
 .template-created { max-width: 680px; margin: 60px auto; padding: 54px; border: 1px solid #e3eadc; border-radius: 14px; background: #f8faf5; text-align: center; }
 .template-created > span { display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; margin: 0 auto 20px; border-radius: 50%; background: #dfead8; color: #325c48; font-size: 26px; }
 .template-created p { margin: 14px 0 28px; color: #75816f; }

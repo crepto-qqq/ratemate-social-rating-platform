@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -50,3 +52,16 @@ class DiscoverTests(TestCase):
         profile = self.client.get('/api/auth/profile/').json()
         self.assertEqual(profile['userName'], 'author')
         self.assertEqual(profile['email'], '')
+
+    def test_creation_rejects_non_integer_weights_without_creating_template(self):
+        self.client.force_login(self.user)
+        for weight in (1.5, 1.0, '1.5', '2', True, None, 0, 11):
+            with self.subTest(weight=weight):
+                response = self.client.post('/api/templates/', {
+                    'title': 'Invalid weight',
+                    'criteria': json.dumps([{'name': 'Quality', 'weight': weight}]),
+                    'items': json.dumps([{'name': 'Item'}]),
+                })
+                self.assertEqual(response.status_code, 400)
+                self.assertIn('权重', response.json()['detail'])
+                self.assertEqual(Template.objects.count(), 0)

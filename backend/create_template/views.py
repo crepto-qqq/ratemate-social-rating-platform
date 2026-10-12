@@ -82,9 +82,8 @@ def create_template_view(request):
         if not isinstance(criterion, dict):
             return JsonResponse({'detail': '评分标准格式无效。'}, status=400)
         name = str(criterion.get('name', '')).strip()
-        try:
-            weight = int(criterion.get('weight', 1))
-        except (TypeError, ValueError):
+        weight = criterion.get('weight', 1)
+        if type(weight) is not int:
             return JsonResponse({'detail': '评分标准权重必须是整数。'}, status=400)
         if not name or len(name) > 100 or not 1 <= weight <= 10:
             return JsonResponse({'detail': '评分标准名称或权重无效。'}, status=400)
