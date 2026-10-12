@@ -30,9 +30,9 @@ onMounted(loadTemplates)
     <div class="feed-heading"><h2>{{ query ? 'Search results for “' + query + '”' : 'Discover' }}</h2><span v-if="!loading && !error" class="feed-count">{{ results.length }} templates</span><RouterLink v-if="query" class="text-button" to="/home_page">Clear search</RouterLink></div>
     <div v-if="loading" class="empty-results" role="status">Loading templates…</div>
     <div v-else-if="error" class="empty-results" role="alert"><p>{{ error }}</p><button class="action-button" @click="loadTemplates">Try again</button></div>
-    <section v-else-if="results.length" class="masonry" aria-label="Community templates">
+    <section v-else-if="results.length" class="template-grid" aria-label="Community templates">
       <article v-for="t in results" :key="t.id" class="card">
-        <RouterLink class="cover" :class="{ fallback: !t.items[0]?.imageUrl || failedImages.has(t.id) }" style="aspect-ratio: 1/1.1" :to="'/templates/' + t.id">
+        <RouterLink class="cover" :class="{ fallback: !t.items[0]?.imageUrl || failedImages.has(t.id) }" :to="'/templates/' + t.id">
           <img v-if="t.items[0]?.imageUrl && !failedImages.has(t.id)" :src="t.items[0].imageUrl" :alt="t.title" @error="imageFailed(t.id)"><span v-else>{{ t.title }}</span>
           <span class="item-count"><AppIcon name="layers" />{{ t.items.length }} items to rate</span>
         </RouterLink>
@@ -44,6 +44,22 @@ onMounted(loadTemplates)
   </AppLayout>
 </template>
 <style scoped>
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 28px 24px;
+  align-items: start;
+}
+.card { display: block; min-width: 0; margin: 0; }
+.cover { height: clamp(220px, 22vw, 340px); }
+.cover img { object-fit: contain; }
+.card-title { overflow-wrap: anywhere; }
+.card-meta > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.mini-avatar, .likes { flex-shrink: 0; }
 .mini-avatar { overflow: hidden; }
 .mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 620px) {
+  .template-grid { gap: 24px; }
+  .cover { height: auto; aspect-ratio: 4 / 3; }
+}
 </style>
