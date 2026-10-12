@@ -33,7 +33,7 @@ function search() {
         <span class="brand-icon">r<span>·</span></span>ratemate<span class="brand-dot">.</span>
       </RouterLink>
       <nav aria-label="Main navigation">
-        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="nav-item" :class="{ active: section === item.section }">
+        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" :aria-label="item.label" :title="item.label" class="nav-item" :class="{ active: section === item.section }">
           <AppIcon :name="item.icon" />
           <span>{{ item.label }}</span>
         </RouterLink>
