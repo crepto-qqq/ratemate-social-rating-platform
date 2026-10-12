@@ -8,6 +8,7 @@ import { apiBaseUrl, apiFetch } from '../api.js'
 const route = useRoute()
 const router = useRouter()
 const tab = computed(() => route.query.tab === 'templates' ? 'templates' : 'ratings')
+const order = computed(() => route.query.order === 'latest' ? 'latest' : 'for-you')
 const query = computed(() => String(route.query.q || '').trim())
 const templates = ref([])
 const ratings = ref([])
@@ -16,11 +17,13 @@ const loadingMore = ref(false)
 const error = ref('')
 const hasMore = ref(false)
 const page = ref(1)
+const personalized = ref(false)
 const failedImages = ref(new Set())
 const templateResults = computed(() => templates.value.filter(t => [t.title, t.description, t.author.name].join(' ').toLowerCase().includes(query.value.toLowerCase())))
 const count = computed(() => tab.value === 'ratings' ? ratings.value.length : templateResults.value.length)
 let version = 0
 function setTab(value) { router.replace({ query: { ...route.query, tab: value } }) }
+function setOrder(value) { router.replace({ query: { ...route.query, order: value } }) }
 function imageFailed(key) { failedImages.value = new Set([...failedImages.value, key]) }
 async function loadFeed(more = false) {
   const requestVersion = ++version
@@ -29,22 +32,27 @@ async function loadFeed(more = false) {
   error.value = ''
   const nextPage = more ? page.value + 1 : 1
   try {
-    const endpoint = tab.value === 'ratings'
-      ? '/api/ratings/public/?page=' + nextPage + '&q=' + encodeURIComponent(query.value)
-      : '/api/templates/'
+    const endpoint = order.value === 'for-you' && !query.value
+      ? '/api/recommendations/?kind=' + tab.value + '&page=' + nextPage
+      : tab.value === 'ratings'
+        ? '/api/ratings/public/?page=' + nextPage + '&q=' + encodeURIComponent(query.value)
+        : '/api/templates/'
     const response = await apiFetch(apiBaseUrl + endpoint)
     const data = await response.json()
     if (!response.ok) throw new Error(data.detail || 'Unable to load Discover.')
     if (requestVersion !== version) return
+    hasMore.value = Boolean(data.hasMore)
+    personalized.value = Boolean(data.personalized)
+    page.value = nextPage
     if (tab.value === 'ratings') {
       ratings.value = more ? [...ratings.value, ...data.results] : data.results
       hasMore.value = data.hasMore
       page.value = nextPage
-    } else templates.value = data.templates
+    } else templates.value = more ? [...templates.value, ...data.templates] : data.templates
   } catch (e) { if (requestVersion === version) error.value = e.message }
   finally { if (requestVersion === version) { loading.value = false; loadingMore.value = false } }
 }
-watch([tab, query], () => loadFeed(), { immediate: true })
+watch([tab, query, order], () => loadFeed(), { immediate: true })
 function formattedDate(value) { return new Date(value).toLocaleDateString('en', { month: 'short', day: 'numeric' }) }
 </script>
 <template>
@@ -53,6 +61,11 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
     <div class="discover-tabs" role="tablist" aria-label="Discover content">
       <button id="ratings-tab" role="tab" :aria-selected="tab === 'ratings'" aria-controls="ratings-panel" :class="{ active: tab === 'ratings' }" @click="setTab('ratings')"><AppIcon name="star" />Community ratings</button>
       <button id="templates-tab" role="tab" :aria-selected="tab === 'templates'" aria-controls="templates-panel" :class="{ active: tab === 'templates' }" @click="setTab('templates')"><AppIcon name="layers" />Templates</button>
+    </div>
+    <div v-if="!query" class="feed-order" aria-label="Discover sorting">
+      <button :class="{ active: order === 'for-you' }" :aria-pressed="order === 'for-you'" @click="setOrder('for-you')"><AppIcon name="sparkle" />For you</button>
+      <button :class="{ active: order === 'latest' }" :aria-pressed="order === 'latest'" @click="setOrder('latest')">Latest</button>
+      <span>{{ order === 'latest' ? 'Newest first' : personalized ? 'Inspired by what you create, save, rate and like' : 'Popular and recently shared' }}</span>
     </div>
     <section :id="tab + '-panel'" role="tabpanel" :aria-labelledby="tab + '-tab'">
       <div class="feed-heading"><div><h2>{{ query ? 'Search results for “' + query + '”' : tab === 'ratings' ? 'Real ratings. Personal perspectives.' : 'A starting point for your next rating.' }}</h2><p class="feed-description">{{ tab === 'ratings' ? 'Completed rankings shared by the community.' : 'Save a template and make the ratings your own.' }}</p></div><span v-if="!loading && !error" class="feed-count">{{ count }} {{ tab === 'ratings' ? 'ratings' : 'templates' }}{{ tab === 'ratings' && hasMore ? ' loaded' : '' }}</span><RouterLink v-if="query" class="text-button" :to="{ path: '/home_page', query: { tab } }">Clear search</RouterLink></div>
@@ -68,13 +81,14 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
             </RouterLink>
             <div class="rating-card-body">
               <RouterLink class="card-title" :to="'/ratings/' + result.id">{{ result.template.title }}</RouterLink>
+              <p v-if="result.recommendationReason && !query && order === 'for-you'" class="recommendation-reason"><AppIcon name="sparkle" />{{ result.recommendationReason }}</p>
               <div class="card-meta"><span class="mini-avatar"><img v-if="result.author.avatarUrl" :src="result.author.avatarUrl" alt=""><template v-else>{{ result.author.name.charAt(0).toUpperCase() || '?' }}</template></span><span>{{ result.author.name }}</span><time :datetime="result.createdAt">{{ formattedDate(result.createdAt) }}</time></div>
               <ol class="ranking-preview"><li v-for="(item, index) in result.ranking.slice(0, 3)" :key="item.itemId"><span class="position" :class="{ first: index === 0 }">{{ index + 1 }}</span><span class="item-name">{{ item.name }}</span><strong>{{ item.score.toFixed(1) }}<small>/100</small></strong></li></ol>
               <div class="rating-card-footer"><RatingLikeButton :result="result" @change="Object.assign(result, $event)" /><RouterLink class="discussion-link" :to="'/ratings/' + result.id + '#comments'">Comments · {{ result.commentCount }}</RouterLink></div>
             </div>
           </article>
         </div>
-        <div v-else class="empty-results"><h2>{{ query ? 'No matching public ratings' : 'Be the first to share a ranking.' }}</h2><p>{{ query ? 'Try another search.' : 'Complete a rating and make it public to share it here.' }}</p><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></div>
+        <div v-else class="empty-results"><h2>{{ query ? 'No matching public ratings' : order === 'for-you' ? 'You’re all caught up.' : 'Be the first to share a ranking.' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest ratings or share a new perspective.' : 'Complete a rating and make it public to share it here.' }}</p><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest ratings</button><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></div>
         <div v-if="hasMore && ratings.length" class="load-more"><button class="action-button" :disabled="loadingMore" @click="loadFeed(true)">{{ loadingMore ? 'Loading…' : 'Load more ratings' }}</button></div>
       </template>
       <template v-else>
@@ -82,15 +96,23 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
           <article v-for="t in templateResults" :key="t.id" class="card">
             <RouterLink class="cover" :class="{ fallback: !t.items[0]?.imageUrl || failedImages.has('template-' + t.id) }" :to="'/templates/' + t.id"><img v-if="t.items[0]?.imageUrl && !failedImages.has('template-' + t.id)" :src="t.items[0].imageUrl" :alt="t.title" @error="imageFailed('template-' + t.id)"><span v-else>{{ t.title }}</span><span class="item-count"><AppIcon name="layers" />{{ t.items.length }} items to rate</span></RouterLink>
             <RouterLink class="card-title" :to="'/templates/' + t.id">{{ t.title }}</RouterLink>
+            <p v-if="t.recommendationReason && !query && order === 'for-you'" class="recommendation-reason"><AppIcon name="sparkle" />{{ t.recommendationReason }}</p>
             <div class="card-meta"><span class="mini-avatar"><img v-if="t.author.avatarUrl" :src="t.author.avatarUrl" alt=""><template v-else>{{ t.author.name.charAt(0).toUpperCase() || '?' }}</template></span><span>{{ t.author.name }}</span><span class="likes" title="Favorites"><AppIcon name="bookmark" />{{ t.popularity }}</span></div>
           </article>
         </div>
-        <div v-else class="empty-results"><h2>{{ query ? 'No matching templates' : 'No templates yet' }}</h2><p>{{ query ? 'Try another search.' : 'Create the first template to start exploring.' }}</p><RouterLink class="action-button" to="/create">Create a template</RouterLink></div>
+        <div v-else class="empty-results"><h2>{{ query ? 'No matching templates' : order === 'for-you' ? 'You’re all caught up.' : 'No templates yet' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest templates, including your own collection.' : 'Create the first template to start exploring.' }}</p><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest templates</button><RouterLink class="action-button" to="/create">Create a template</RouterLink></div>
+        <div v-if="hasMore && templateResults.length" class="load-more"><button class="action-button" :disabled="loadingMore" @click="loadFeed(true)">{{ loadingMore ? 'Loading…' : 'Load more templates' }}</button></div>
       </template>
     </section>
   </AppLayout>
 </template>
 <style scoped>
+.feed-order { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -8px 0 24px; }
+.feed-order button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e0e8da; border-radius: 20px; padding: 8px 14px; color: #7b8873; background: white; font-size: 12px; }
+.feed-order button.active { background: #325c48; color: white; border-color: #325c48; }
+.feed-order svg, .recommendation-reason svg { width: 13px; height: 13px; }
+.feed-order > span { font-size: 12px; color: #8b9780; margin-left: 6px; }
+.recommendation-reason { display: flex; align-items: center; gap: 6px; color: #6a825b; font-size: 11px; margin: 0 0 12px; }
 .discover-tabs { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
 .discover-tabs button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid transparent; padding: 12px 18px; border-radius: 10px; background: #f5f7f3; color: #7b8873; font-weight: 600; }
 .discover-tabs button.active { background: #e6eee1; border-color: #d9e5d1; color: #325c48; }

@@ -17,6 +17,7 @@ import os
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+EMBEDDING_CACHE_DIR = os.environ.get('EMBEDDING_CACHE_DIR', '/tmp/ratemate-models')
 
 load_dotenv(BASE_DIR / '.env')
 # 这个函数会在项目启动时加载 .env 文件中的环境变量，使得我们可以在 settings.py 中使用 os.environ 来获取这些变量的值。
@@ -41,6 +42,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'recommendations',
     'accounts',
     'create_template',
     'rating',
