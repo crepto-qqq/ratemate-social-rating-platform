@@ -1,24 +1,55 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
+import { apiBaseUrl, apiFetch } from '../api.js'
 
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
 const profileName = computed(() => currentProfile.value?.userName || (profileLoading.value ? 'Loading…' : 'Profile unavailable'))
 const profileInitial = computed(() => currentProfile.value?.userName?.trim().charAt(0).toUpperCase() || '?')
-onMounted(loadCurrentProfile)
+const unreadCount = ref(0)
+let unreadTimer
+
+async function refreshUnreadCount() {
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/api/notifications/unread-count/`)
+    if (!response.ok) {
+      unreadCount.value = 0
+      return
+    }
+    const data = await response.json()
+    unreadCount.value = Number(data.unreadCount) || 0
+  } catch {
+    unreadCount.value = 0
+  }
+}
+
+onMounted(() => {
+  loadCurrentProfile()
+  refreshUnreadCount()
+  window.addEventListener('notifications:updated', refreshUnreadCount)
+  unreadTimer = window.setInterval(refreshUnreadCount, 30000)
+})
+onUnmounted(() => {
+  window.removeEventListener('notifications:updated', refreshUnreadCount)
+  window.clearInterval(unreadTimer)
+})
 
 const section = computed(() => route.meta.section || 'Discover')
-const navItems = [
-  { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
-  { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
-  { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
-  { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages' },
-  { to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' },
-]
+const navItems = computed(() => {
+  const items = [
+    { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
+    { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
+    { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
+    { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages' },
+  ]
+  if (currentProfile.value?.isAdmin) items.push({ to: '/admin', icon: 'shield', label: 'Admin', section: 'Admin' })
+  items.push({ to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' })
+  return items
+})
 
 function search() {
   const value = query.value.trim()
@@ -33,9 +64,10 @@ function search() {
         <span class="brand-icon">r<span>·</span></span>ratemate<span class="brand-dot">.</span>
       </RouterLink>
       <nav aria-label="Main navigation">
-        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" :aria-label="item.label" :title="item.label" class="nav-item" :class="{ active: section === item.section }">
+        <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" :aria-label="item.section === 'Messages' && unreadCount ? `${item.label}, ${unreadCount} unread` : item.label" :title="item.label" class="nav-item" :class="{ active: section === item.section }">
           <AppIcon :name="item.icon" />
           <span>{{ item.label }}</span>
+          <b v-if="item.section === 'Messages' && unreadCount" class="nav-unread">{{ unreadCount > 99 ? '99+' : unreadCount }}</b>
         </RouterLink>
       </nav>
       <div class="sidebar-bottom">
@@ -64,4 +96,7 @@ function search() {
 <style scoped>
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.nav-item { position: relative; }
+.nav-unread { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; margin-left: auto; padding: 0 5px; border-radius: 11px; background: #be493e; color: white; font-size: 11px; line-height: 1; }
+@media (max-width: 620px) { .nav-unread { position: absolute; top: 3px; right: 3px; min-width: 17px; height: 17px; padding: 0 3px; font-size: 9px; } }
 </style>

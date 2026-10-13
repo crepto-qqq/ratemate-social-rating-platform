@@ -8,6 +8,7 @@ import ProfilePage from '../views/ProfilePage.vue'
 import RateTemplatePage from '../views/RateTemplatePage.vue'
 import TemplateDetailPage from '../views/TemplateDetailPage.vue'
 import PublicRatingPage from '../views/PublicRatingPage.vue'
+import AdminPage from '../views/AdminPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -53,6 +54,11 @@ const router = createRouter({
       path: '/messages',
       component: MessagesPage,
       meta: { title: 'Messages', section: 'Messages' },
+    },
+    {
+      path: '/admin',
+      component: AdminPage,
+      meta: { title: 'Admin', section: 'Admin' },
     },
     {
       path: '/profile',

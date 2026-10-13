@@ -33,11 +33,11 @@ def interest_weights(user):
     def add(ids, weight):
         for template_id in ids:
             weights[template_id] = max(weights.get(template_id, 0), weight)
-    add(Template.objects.filter(owner=user).values_list('id', flat=True), 1)
+    add(Template.objects.filter(owner=user, is_hidden=False).values_list('id', flat=True), 1)
     # Auto-favorites of authored templates must not become a second, stronger vote.
-    add(Favorite.objects.filter(user=user).exclude(template__owner=user).values_list('template_id', flat=True), 2)
-    add(completed_results(RatingResult.objects.filter(owner=user)).values_list('template_id', flat=True), 2)
-    liked = RatingResult.objects.filter(is_public=True, likes__user=user).exclude(owner=user)
+    add(Favorite.objects.filter(user=user, template__is_hidden=False).exclude(template__owner=user).values_list('template_id', flat=True), 2)
+    add(completed_results(RatingResult.objects.filter(owner=user, template__is_hidden=False)).values_list('template_id', flat=True), 2)
+    liked = RatingResult.objects.filter(is_public=True, template__is_hidden=False, likes__user=user).exclude(owner=user)
     add(completed_results(liked).values_list('template_id', flat=True), 3)
     return weights
 
@@ -62,13 +62,13 @@ def preference(user, weights):
 
 def metadata(kind, user):
     if kind == 'templates':
-        queryset = Template.objects.all()
+        queryset = Template.objects.filter(is_hidden=False)
         if user:
             queryset = queryset.exclude(owner=user)
         return list(queryset.annotate(
             heat=Count('favorite_records', filter=~Q(favorite_records__user_id=F('owner_id')), distinct=True)
         ).values('id', 'heat', 'created_at', 'updated_at').order_by('id'))
-    queryset = completed_results(RatingResult.objects.filter(is_public=True))
+    queryset = completed_results(RatingResult.objects.filter(is_public=True, template__is_hidden=False))
     if user:
         queryset = queryset.exclude(owner=user).exclude(likes__user=user)
     return list(queryset.annotate(heat=Count('likes', distinct=True)).values('id', 'template_id', 'heat', 'created_at').order_by('id'))

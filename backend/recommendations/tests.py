@@ -129,6 +129,30 @@ class RecommendationTests(TestCase):
         result.save(update_fields=['is_public'])
         self.assertEqual(self.client.get('/api/recommendations/?kind=ratings').json()['results'], [])
 
+    def test_hidden_template_and_its_ratings_leave_recommendations_after_cache(self):
+        Favorite.objects.create(template=self.coffee, user=self.viewer)
+        rating = self.result(self.coffee)
+        self.assertIn(self.coffee.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=templates').json()['templates']])
+        self.assertIn(rating.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=ratings').json()['results']])
+        self.assertEqual(interest_weights(self.viewer)[self.coffee.pk], 2)
+
+        self.coffee.is_hidden = True
+        self.coffee.save(update_fields=['is_hidden'])
+        self.assertNotIn(self.coffee.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=templates').json()['templates']])
+        self.assertNotIn(rating.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=ratings').json()['results']])
+        self.assertNotIn(self.coffee.pk, interest_weights(self.viewer))
+
+        self.coffee.is_hidden = False
+        self.coffee.save(update_fields=['is_hidden'])
+        self.assertIn(self.coffee.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=templates').json()['templates']])
+        self.assertIn(rating.pk, [entry['id'] for entry in self.client.get(
+            '/api/recommendations/?kind=ratings').json()['results']])
+
     def test_cold_start_ignores_creator_auto_favorites_for_heat(self):
         Favorite.objects.create(template=self.unrelated, user=self.author)
         Favorite.objects.create(template=self.similar, user=self.viewer)
