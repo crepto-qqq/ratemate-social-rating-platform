@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import AppLayout from '../components/AppLayout.vue'
@@ -13,6 +13,11 @@ const saving = ref(false)
 const saveError = ref('')
 const totalWeight = computed(() => data.value?.criteria.reduce((sum, c) => sum + c.weight, 0) || 1)
 let loadVersion = 0
+async function scrollToComments() {
+  if (route.hash !== '#comments') return
+  await nextTick()
+  document.getElementById('comments')?.scrollIntoView()
+}
 async function loadTemplate() {
   const version = ++loadVersion
   loading.value = true
@@ -25,7 +30,12 @@ async function loadTemplate() {
     const result = await response.json()
     if (version === loadVersion) data.value = result
   } catch (e) { if (version === loadVersion) error.value = e.message }
-  finally { if (version === loadVersion) loading.value = false }
+  finally {
+    if (version === loadVersion) {
+      loading.value = false
+      if (data.value) await scrollToComments()
+    }
+  }
 }
 async function toggleFavorite() {
   if (!data.value || saving.value) return
@@ -41,6 +51,7 @@ async function toggleFavorite() {
   finally { saving.value = false }
 }
 watch(() => route.params.id, loadTemplate, { immediate: true })
+watch(() => route.hash, () => { if (data.value) scrollToComments() })
 </script>
 <template>
   <AppLayout>
@@ -62,7 +73,7 @@ watch(() => route.params.id, loadTemplate, { immediate: true })
         <div class="detail-main">
           <section class="detail-section"><div class="section-heading"><h2>Rating criteria</h2><span>{{ data.criteria.length }} criteria · 1–5 stars each</span></div><div class="criteria-list"><div v-for="c in data.criteria" :key="c.id" class="criterion"><strong>{{ c.name }}</strong><span>Weight {{ c.weight }}</span><div class="weight-track"><div :style="{ width: c.weight / totalWeight * 100 + '%' }" /></div><small>{{ Math.round(c.weight / totalWeight * 100) }}% of total weight</small></div></div></section>
           <section class="detail-section"><div class="section-heading"><h2>Items to rate</h2><span>{{ data.items.length }} items</span></div><div class="template-items"><article v-for="item in data.items" :key="item.id"><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><strong>{{ item.name }}</strong></article></div></section>
-          <TemplateComments :key="data.id" :template-id="data.id" />
+          <div id="comments"><TemplateComments :key="data.id" :template-id="data.id" /></div>
         </div>
         <aside class="ranking-panel"><h2>Make your own rating</h2><div class="reuse-note">Save this template to your favorites, then rate its items using the criteria above.</div><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></aside>
       </div>
@@ -76,4 +87,5 @@ watch(() => route.params.id, loadTemplate, { immediate: true })
 .template-items article { display: grid; gap: 10px; }
 .template-items img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
 .ranking-panel .action-button { margin-top: 20px; }
+#comments { scroll-margin-top: 24px; }
 </style>

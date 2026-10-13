@@ -14,7 +14,9 @@ def queue_template(template_id):
 
 @receiver(post_save, sender=Template)
 def template_changed(sender, instance, raw=False, **kwargs):
-    if not raw:
+    # Moderation visibility changes do not alter the embedding's source text.
+    update_fields = kwargs.get('update_fields')
+    if not raw and (update_fields is None or not set(update_fields) <= {'is_hidden', 'updated_at'}):
         queue_template(instance.pk)
 
 @receiver(post_save, sender=Criterion)

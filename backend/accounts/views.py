@@ -102,6 +102,7 @@ def _profile_response(request, profile):
         'email': '' if profile.email.endswith('@profiles.invalid') else profile.email,
         'avatarUrl': avatar_url,
         'bio': profile.bio,
+        'isAdmin': request.user.is_staff or request.user.is_superuser,
     }
 
 

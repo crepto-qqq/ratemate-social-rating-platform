@@ -15,6 +15,10 @@ const saving = ref(false)
 const loadError = ref('')
 const status = ref('')
 const error = ref('')
+const hiddenTemplates = ref([])
+const hiddenRatings = ref([])
+const hiddenLoading = ref(true)
+const hiddenError = ref('')
 const avatarInitial = computed(() => profile.username.trim().charAt(0).toUpperCase() || '?')
 
 function applyProfile(data) {
@@ -120,7 +124,32 @@ function cancel() {
   status.value = 'Changes cancelled'
 }
 
-onMounted(loadProfile)
+async function loadHiddenContent() {
+  hiddenLoading.value = true
+  hiddenError.value = ''
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/api/templates/mine/hidden/`)
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.detail || 'Unable to load content status.')
+    hiddenTemplates.value = Array.isArray(data.templates) ? data.templates : []
+    hiddenRatings.value = Array.isArray(data.ratings) ? data.ratings : []
+  } catch (requestError) {
+    hiddenError.value = requestError.message || 'Unable to load content status.'
+  } finally {
+    hiddenLoading.value = false
+  }
+}
+
+function statusDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium' }).format(date)
+}
+
+onMounted(() => {
+  loadProfile()
+  loadHiddenContent()
+})
 </script>
 
 <template>
@@ -202,6 +231,29 @@ onMounted(loadProfile)
         </div>
       </div>
     </form>
+    <section v-if="!loading && !loadError" class="hidden-content" aria-labelledby="hidden-heading">
+      <div class="hidden-content-heading">
+        <div>
+          <div class="eyebrow">CONTENT STATUS</div>
+          <h2 id="hidden-heading">Hidden content</h2>
+          <p>Only an administrator can restore a hidden template. Your ratings remain saved while its template is hidden.</p>
+        </div>
+        <button class="action-button" type="button" :disabled="hiddenLoading" @click="loadHiddenContent">Refresh</button>
+      </div>
+      <p v-if="hiddenLoading" role="status">Loading content status…</p>
+      <p v-else-if="hiddenError" class="profile-error" role="alert">{{ hiddenError }}</p>
+      <p v-else-if="!hiddenTemplates.length && !hiddenRatings.length" class="hidden-empty">No hidden templates or affected ratings.</p>
+      <div v-else class="hidden-list">
+        <article v-for="template in hiddenTemplates" :key="`template-${template.id}`" class="hidden-card">
+          <div><span class="state-badge">Template hidden</span><h3>{{ template.title }}</h3><p>{{ template.ratingCount }} saved rating{{ template.ratingCount === 1 ? '' : 's' }}</p></div>
+          <div><strong>Reason</strong><p>{{ template.reason || 'No reason available.' }}</p><small v-if="template.hiddenAt">Hidden {{ statusDate(template.hiddenAt) }}</small></div>
+        </article>
+        <article v-for="rating in hiddenRatings" :key="`rating-${rating.id}`" class="hidden-card">
+          <div><span class="state-badge">Rating unavailable</span><h3>{{ rating.templateTitle }}</h3><p>Your rating remains saved and will reappear if the template is restored.</p></div>
+          <div><strong>Reason</strong><p>{{ rating.reason || 'No reason available.' }}</p><small v-if="rating.hiddenAt">Hidden {{ statusDate(rating.hiddenAt) }}</small></div>
+        </article>
+      </div>
+    </section>
   </AppLayout>
 </template>
 
@@ -318,6 +370,16 @@ onMounted(loadProfile)
 .profile-form-footer > p { margin: 0; color: #849079; font-size: 12px; }
 .profile-form-footer > div { display: flex; gap: 10px; }
 
+.hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid #e5ebdf; border-radius: 12px; background: #fbfcf9; }
+.hidden-content-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.hidden-content-heading h2 { margin: 0; font-size: 20px; }
+.hidden-content-heading p, .hidden-empty { color: #7e8878; font-size: 14px; line-height: 1.6; }
+.hidden-list { display: grid; gap: 14px; margin-top: 22px; }
+.hidden-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; padding: 18px; border: 1px solid #e5ebdf; border-radius: 10px; background: white; }
+.hidden-card h3 { margin: 10px 0 6px; font-size: 17px; overflow-wrap: anywhere; }
+.hidden-card p { margin: 6px 0; color: #677462; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.hidden-card strong, .hidden-card small { color: #7b8876; font-size: 12px; }
+
 @media (max-width: 900px) {
   .profile-form-grid { grid-template-columns: 1fr; }
   .profile-wide { grid-column: auto; }
@@ -328,5 +390,8 @@ onMounted(loadProfile)
   .profile-editor-heading,
   .profile-form-footer { align-items: flex-start; flex-direction: column; }
   .avatar-field { align-items: flex-start; }
+  .hidden-content { padding: 20px; }
+  .hidden-content-heading { flex-direction: column; }
+  .hidden-card { grid-template-columns: 1fr; }
 }
 </style>

@@ -153,6 +153,7 @@ async function loadResults() {
 }
 
 function editResult(result) {
+  if (result.templateHidden) return
   activeTemplate.value = result.template
   editingResultId.value = result.id
   savedResultId.value = result.id
@@ -180,6 +181,7 @@ async function updateVisibility(result, value) {
 }
 
 async function toggleResultVisibility(result) {
+  if (result.templateHidden) return
   result.actionError = ''
   try {
     await updateVisibility(result, !result.isPublic)
@@ -237,10 +239,11 @@ onMounted(loadFavorites)
       <div v-else-if="!results.length" class="history-state"><h2>No rating results yet</h2><p>Complete your first rating to see it here.</p><button class="action-button primary" type="button" @click="switchMode('new')">Start a rating</button></div>
       <div v-else class="history-list">
         <article v-for="result in results" :key="result.id" class="history-card">
-          <div class="history-card-heading"><div><span class="state-badge">{{ result.isPublic ? 'Public' : 'Private' }}</span><h2>{{ result.template.title }}</h2><small>{{ formatDate(result.createdAt) }} · Result #{{ result.id }}</small></div><strong>{{ result.ranking[0]?.score.toFixed(1) }}</strong></div>
+          <div class="history-card-heading"><div><span class="state-badge">{{ result.templateHidden ? 'Template hidden' : result.isPublic ? 'Public' : 'Private' }}</span><h2>{{ result.template.title }}</h2><small>{{ formatDate(result.createdAt) }} · Result #{{ result.id }}</small></div><strong>{{ result.ranking[0]?.score.toFixed(1) }}</strong></div>
+          <p v-if="result.templateHidden" class="history-hidden-note">This template is hidden by an administrator. You can view or delete this saved rating, but cannot edit or publish it until the template is restored. See your profile for the reason.</p>
           <ol><li v-for="(item, index) in result.ranking.slice(0, 3)" :key="item.itemId"><span>{{ index + 1 }}</span>{{ item.name }}<b>{{ item.score.toFixed(1) }}</b></li></ol>
           <p v-if="result.actionError" class="rate-error">{{ result.actionError }}</p>
-          <div class="history-actions"><button class="action-button" type="button" @click="editResult(result)">Edit ratings</button><button class="action-button" type="button" @click="toggleResultVisibility(result)">{{ result.isPublic ? 'Make private' : 'Make public' }}</button><button class="text-button danger" type="button" @click="deleteResult(result)">Delete</button></div>
+          <div class="history-actions"><button v-if="!result.templateHidden" class="action-button" type="button" @click="editResult(result)">Edit ratings</button><button v-if="!result.templateHidden" class="action-button" type="button" @click="toggleResultVisibility(result)">{{ result.isPublic ? 'Make private' : 'Make public' }}</button><button class="text-button danger" type="button" @click="deleteResult(result)">Delete</button></div>
         </article>
       </div>
     </section>
@@ -298,6 +301,7 @@ onMounted(loadFavorites)
 .rate-item-title > span, .progress-ring, .stars { flex-shrink: 0; }
 .rate-item-title h2, .rate-criterion-row strong, .result-row strong, .history-card h2 { overflow-wrap: anywhere; }
 .result-save-status, .history-actions { flex-wrap: wrap; }
+.history-hidden-note { margin: 16px 0 0; color: #7b655b; font-size: 13px; line-height: 1.6; }
 @media (max-width: 620px) {
   .template-picker { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 24px; }
   .template-option img, .template-image-fallback { height: auto; aspect-ratio: 4 / 3; }

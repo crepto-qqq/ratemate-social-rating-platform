@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 
 from accounts.profiles import current_profile
 from create_template.models import Template
+from notifications.services import remove_interaction_notifications
 
 from .models import RatingResult, RatingScore
 
@@ -97,6 +98,7 @@ def _result_data(request, result):
     return {
         'id': result.id,
         'isPublic': result.is_public,
+        'templateHidden': template.is_hidden,
         'createdAt': result.created_at.isoformat(),
         'template': _template_data(request, template),
         'scores': [
@@ -129,7 +131,7 @@ def rating_collection_view(request):
     if data is None:
         return JsonResponse({'detail': '请求内容必须是有效的 JSON 对象。'}, status=400)
 
-    template = get_object_or_404(Template, pk=data.get('templateId'))
+    template = get_object_or_404(Template, pk=data.get('templateId'), is_hidden=False)
     normalized_scores, validation_error = _validate_scores(template, data.get('scores'))
     if validation_error:
         return JsonResponse({'detail': validation_error}, status=400)
@@ -138,6 +140,10 @@ def rating_collection_view(request):
         return JsonResponse({'detail': '公开状态必须是布尔值。'}, status=400)
 
     with transaction.atomic():
+        # Recheck under the same lock used by moderation before saving a rating.
+        template = get_object_or_404(
+            Template.objects.select_for_update(), pk=template.pk, is_hidden=False,
+        )
         result = RatingResult.objects.create(owner=owner, template=template, is_public=is_public)
         RatingScore.objects.bulk_create([
             RatingScore(result=result, item_id=item_id, criterion_id=criterion_id, score=score)
@@ -159,18 +165,27 @@ def rating_detail_view(request, result_id):
     )
 
     if request.method == 'DELETE':
-        result.delete()
+        with transaction.atomic():
+            result = get_object_or_404(
+                RatingResult.objects.select_for_update(), pk=result_id, owner=owner,
+            )
+            remove_interaction_notifications('rating', result.pk)
+            result.delete()
         return JsonResponse({'message': '评分记录已删除。'})
+
+    if result.template.is_hidden:
+        return JsonResponse({'detail': 'Template not found.'}, status=404)
 
     data = _read_json(request)
     if data is None:
         return JsonResponse({'detail': '请求内容必须是有效的 JSON 对象。'}, status=400)
 
     update_fields = []
+    desired_public = None
     if 'isPublic' in data:
         if not isinstance(data['isPublic'], bool):
             return JsonResponse({'detail': '公开状态必须是布尔值。'}, status=400)
-        result.is_public = data['isPublic']
+        desired_public = data['isPublic']
         update_fields.append('is_public')
 
     normalized_scores = None
@@ -182,8 +197,17 @@ def rating_detail_view(request, result_id):
             return JsonResponse({'detail': validation_error}, status=400)
 
     with transaction.atomic():
+        get_object_or_404(
+            Template.objects.select_for_update(), pk=result.template_id, is_hidden=False,
+        )
+        result = get_object_or_404(
+            RatingResult.objects.select_for_update(), pk=result_id, owner=owner,
+        )
         if update_fields:
+            result.is_public = desired_public
             result.save(update_fields=update_fields)
+            if not result.is_public:
+                remove_interaction_notifications('rating', result.pk)
         if normalized_scores is not None:
             result.scores.all().delete()
             RatingScore.objects.bulk_create([

@@ -25,6 +25,8 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/templates/', include('create_template.urls')),
     path('api/ratings/', include('rating.urls')),
+    path('api/moderation/', include('moderation.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]
 
 if settings.DEBUG:

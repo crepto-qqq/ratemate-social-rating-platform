@@ -6,6 +6,8 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts.profiles import current_profile
+from notifications.models import Notification
+from notifications.services import notify_interaction, remove_interaction_notification
 
 from .models import Criterion, Favorite, Item, Template
 
@@ -54,7 +56,7 @@ def create_template_view(request):
     if request.method == 'GET':
         viewer = _current_owner(request)
         favorite_ids = set(Favorite.objects.filter(user=viewer).values_list('template_id', flat=True)) if viewer else set()
-        templates = Template.objects.select_related('owner').prefetch_related(
+        templates = Template.objects.filter(is_hidden=False).select_related('owner').prefetch_related(
             'criteria', 'items', 'favorite_records',
         ).order_by('-created_at', '-id')
         return JsonResponse({'templates': [
@@ -133,7 +135,7 @@ def create_template_view(request):
 @require_http_methods(['GET'])
 def template_detail_view(request, template_id):
     template = get_object_or_404(
-        Template.objects.select_related('owner').prefetch_related('criteria', 'items', 'favorite_records'),
+        Template.objects.filter(is_hidden=False).select_related('owner').prefetch_related('criteria', 'items', 'favorite_records'),
         pk=template_id,
     )
     viewer = _current_owner(request)
@@ -147,7 +149,7 @@ def favorite_list_view(request):
     if owner is None:
         return JsonResponse({'detail': '未找到当前用户。'}, status=404)
 
-    favorites = Favorite.objects.filter(user=owner).select_related('template').prefetch_related(
+    favorites = Favorite.objects.filter(user=owner, template__is_hidden=False).select_related('template').prefetch_related(
         'template__criteria',
         'template__items',
     ).order_by('-created_at')
@@ -164,10 +166,17 @@ def favorite_detail_view(request, template_id):
     owner = _current_owner(request)
     if owner is None:
         return JsonResponse({'detail': '未找到当前用户。'}, status=404)
-    template = get_object_or_404(Template, pk=template_id)
-
     if request.method == 'POST':
-        _, created = Favorite.objects.get_or_create(user=owner, template=template)
+        with transaction.atomic():
+            template = get_object_or_404(
+                Template.objects.select_for_update(), pk=template_id, is_hidden=False,
+            )
+            favorite, created = Favorite.objects.get_or_create(user=owner, template=template)
+            if created:
+                notify_interaction(
+                    template.owner, owner, Notification.TEMPLATE_FAVORITE, favorite.pk,
+                    'template', template.pk, template.title,
+                )
         return JsonResponse(
             {
                 'isFavorite': True,
@@ -176,7 +185,12 @@ def favorite_detail_view(request, template_id):
             status=201 if created else 200,
         )
 
-    Favorite.objects.filter(user=owner, template=template).delete()
+    template = get_object_or_404(Template, pk=template_id)
+    with transaction.atomic():
+        favorite = Favorite.objects.filter(user=owner, template=template).first()
+        if favorite is not None:
+            remove_interaction_notification(Notification.TEMPLATE_FAVORITE, favorite.pk)
+            favorite.delete()
     return JsonResponse({
         'isFavorite': False,
         'popularity': template.popularity,
