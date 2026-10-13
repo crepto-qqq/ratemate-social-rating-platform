@@ -32,21 +32,21 @@ PowerShell 复制文件使用 `Copy-Item .env.example .env`。
 - 源码挂载支持热更新；数据库、上传图片和 node_modules 使用独立数据卷。
 - PostgreSQL 密码仅在数据卷首次初始化时设置，之后修改 .env 不会修改数据库用户密码。
 
-## 真实 QQ 邮件
+## 真实 Gmail 邮件
 
-在 QQ 邮箱中启用 SMTP 服务并生成授权码，修改根目录被 Git 忽略的 .env：
+为发件 Gmail 开启两步验证并生成应用专用密码，修改根目录被 Git 忽略的 .env：
 
 ```dotenv
-EMAIL_HOST=smtp.qq.com
-EMAIL_PORT=465
-EMAIL_USE_SSL=true
-EMAIL_USE_TLS=false
-EMAIL_HOST_USER=user-63aebf0e1dd0@example.invalid
-EMAIL_HOST_PASSWORD=your-qq-smtp-authorization-code
-DEFAULT_FROM_EMAIL=user-63aebf0e1dd0@example.invalid
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_SSL=false
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=user-54cafa86e8ca@example.invalid
+EMAIL_HOST_PASSWORD=your-google-app-password
+DEFAULT_FROM_EMAIL=user-54cafa86e8ca@example.invalid
 ```
 
-运行 `docker compose up -d --force-recreate backend` 使配置生效。授权码只填在本机 .env，不要提交到仓库或发到聊天中。
+运行 `docker compose up -d --force-recreate backend` 使配置生效。应用专用密码只填在本机 .env，不要提交到仓库或发到聊天中。尚未取得应用专用密码时，保持 EMAIL_HOST=mailpit 和 EMAIL_PORT=1025，可在本地收件箱测试。
 
 ## 常用操作
 
