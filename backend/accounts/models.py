@@ -43,6 +43,7 @@ class AccountSecurity(models.Model):
 class OtpChallenge(models.Model):
     ACTIVATION = 'activation'
     LOGIN = 'login'
+    RESET = 'reset'
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     purpose = models.CharField(max_length=20)

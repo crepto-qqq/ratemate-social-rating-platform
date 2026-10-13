@@ -1,16 +1,18 @@
 import json
+import hashlib
 import re
 import secrets
 from datetime import timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -86,9 +88,15 @@ def _send_challenge(request, user, purpose):
     challenge = OtpChallenge(user=user, purpose=purpose, code_hash=make_password(code),
                              session_key=_session_key(request), expires_at=now + timedelta(minutes=5),
                              last_sent_at=now)
-    subject = 'RateMate email verification' if purpose == OtpChallenge.ACTIVATION else 'RateMate login code'
+    subject = {
+        OtpChallenge.ACTIVATION: 'RateMate email verification',
+        OtpChallenge.LOGIN: 'RateMate login code',
+        OtpChallenge.RESET: 'RateMate password reset code',
+    }[purpose]
     try:
-        send_mail(subject, f'Your RateMate code is {code}. It expires in 5 minutes.', None,
+        message = (f'Your RateMate password reset code is {code}. It expires in 5 minutes.'
+                   if purpose == OtpChallenge.RESET else f'Your RateMate code is {code}. It expires in 5 minutes.')
+        send_mail(subject, message, None,
                   [user.email], fail_silently=False)
     except Exception:
         return None, _error('Could not send the email. Please try again later.', 503)
@@ -220,7 +228,8 @@ def verify_view(request):
     challenge = _challenge(request)
     data = _body(request)
     code = data.get('code') if data else None
-    if challenge is None or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code):
+    if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
+            or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code)):
         return _error('Invalid or expired code.')
     if _too_many_attempts(challenge.user):
         return _error('Too many incorrect codes. Try again in 10 minutes.', 429)
@@ -254,12 +263,70 @@ def verify_view(request):
 @require_POST
 def resend_view(request):
     challenge = _challenge(request)
-    if challenge is None or challenge.expires_at <= timezone.now():
+    if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
+            or challenge.expires_at <= timezone.now()):
         return _error('Invalid or expired code.')
     if challenge.last_sent_at > timezone.now() - timedelta(seconds=60):
         return _error('Please wait before requesting another code.', 429)
     replacement, error = _send_challenge(request, challenge.user, challenge.purpose)
     return error or _step(replacement)
+
+
+@require_POST
+def password_reset_request_view(request):
+    data = _body(request)
+    email = _email(data.get('email')) if data else None
+    if not email:
+        return _error('A valid email address is required.')
+    cache_key = f'password-reset:{hashlib.sha256(email.encode()).hexdigest()}'
+    if not cache.add(cache_key, True, timeout=60):
+        return _error('Please wait one minute before requesting another code.', 429)
+    user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
+    challenge_id = uuid4()
+    if user and AccountSecurity.objects.filter(user=user, email_verified=True).exists():
+        challenge, _ = _send_challenge(request, user, OtpChallenge.RESET)
+        if challenge:
+            challenge_id = challenge.pk
+    return JsonResponse({
+        'step': 'password_reset', 'challengeId': str(challenge_id), 'retryAfter': 60,
+        'detail': 'If an active account uses this email, a reset code has been sent.',
+    })
+
+
+@require_POST
+def password_reset_confirm_view(request):
+    data = _body(request)
+    challenge = _challenge(request)
+    code = data.get('code') if data else None
+    password = data.get('password') if data else None
+    if (challenge is None or challenge.purpose != OtpChallenge.RESET
+            or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code)
+            or not isinstance(password, str)):
+        return _error('Invalid or expired reset code.')
+    if _too_many_attempts(challenge.user):
+        return _error('Too many incorrect codes. Try again in 10 minutes.', 429)
+    if (challenge.expires_at <= timezone.now() or challenge.attempts >= 5
+            or not challenge.user.is_active
+            or not AccountSecurity.objects.filter(user=challenge.user, email_verified=True).exists()):
+        return _error('Invalid or expired reset code.')
+    problem = _validate_new_password(password, challenge.user)
+    if problem:
+        return _error(problem)
+    if not check_password(code, challenge.code_hash):
+        OtpChallenge.objects.filter(pk=challenge.pk, consumed=False, attempts__lt=5).update(attempts=F('attempts') + 1)
+        return _error('Invalid or expired reset code.')
+    with transaction.atomic():
+        challenge = OtpChallenge.objects.select_for_update().get(pk=challenge.pk)
+        if (challenge.consumed or challenge.expires_at <= timezone.now() or challenge.attempts >= 5
+                or not challenge.user.is_active):
+            return _error('Invalid or expired reset code.')
+        user = challenge.user
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        User_profile.objects.filter(user=user).update(password=user.password)
+        OtpChallenge.objects.filter(user=user, consumed=False).update(consumed=True)
+    logout(request)
+    return JsonResponse({'step': 'password_reset_complete', 'detail': 'Password updated. Sign in with your new password.'})
 
 
 @require_POST

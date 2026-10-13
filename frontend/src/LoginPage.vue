@@ -20,6 +20,10 @@ function reset(nextMode = mode.value) {
   stage.value = 'credentials'
   challengeId.value = ''
   form.code = ''
+  if (nextMode === 'reset') {
+    form.password = ''
+    form.passwordConfirm = ''
+  }
   error.value = ''
   notice.value = ''
 }
@@ -46,6 +50,17 @@ function nextStep(data) {
     retryAt.value = Date.now() + (data.retryAfter || 60) * 1000
     notice.value = data.detail
     form.code = ''
+  } else if (data.step === 'password_reset') {
+    stage.value = 'reset-code'
+    challengeId.value = data.challengeId
+    retryAt.value = Date.now() + (data.retryAfter || 60) * 1000
+    notice.value = data.detail
+    form.code = ''
+  } else if (data.step === 'password_reset_complete') {
+    reset('login')
+    form.password = ''
+    form.passwordConfirm = ''
+    notice.value = data.detail
   } else if (data.step === 'login_required') {
     reset('login')
     form.password = ''
@@ -60,7 +75,8 @@ function nextStep(data) {
 async function submit() {
   error.value = ''
   notice.value = ''
-  if (stage.value === 'credentials' && mode.value === 'register' && form.password !== form.passwordConfirm) {
+  if (((stage.value === 'credentials' && mode.value === 'register') || stage.value === 'reset-code')
+      && form.password !== form.passwordConfirm) {
     error.value = 'The passwords do not match.'
     return
   }
@@ -68,13 +84,19 @@ async function submit() {
   try {
     let data
     if (stage.value === 'credentials') {
-      data = await post(mode.value, {
-        username: form.username,
-        password: form.password,
-        ...(mode.value === 'register' ? { email: form.email } : {}),
-      })
+      data = mode.value === 'reset'
+        ? await post('password-reset/request', { email: form.email })
+        : await post(mode.value, {
+          username: form.username,
+          password: form.password,
+          ...(mode.value === 'register' ? { email: form.email } : {}),
+        })
     } else if (stage.value === 'enroll') {
       data = await post('enroll-email', { email: form.email })
+    } else if (stage.value === 'reset-code') {
+      data = await post('password-reset/confirm', {
+        challengeId: challengeId.value, code: form.code, password: form.password,
+      })
     } else {
       data = await post('verify', { challengeId: challengeId.value, code: form.code })
     }
@@ -95,7 +117,9 @@ async function resend() {
   }
   loading.value = true
   try {
-    nextStep(await post('resend', { challengeId: challengeId.value }))
+    nextStep(stage.value === 'reset-code'
+      ? await post('password-reset/request', { email: form.email })
+      : await post('resend', { challengeId: challengeId.value }))
   } catch (requestError) {
     error.value = requestError.message || 'Unable to send a new code.'
   } finally {
@@ -108,33 +132,48 @@ async function resend() {
   <main class="login-page">
     <section class="login-card">
       <p class="game-name">⚔ RateMate</p>
-      <h1>{{ stage === 'credentials' ? (mode === 'login' ? 'Welcome back' : 'Create an account') : stage === 'enroll' ? 'Add your email' : 'Check your email' }}</h1>
+      <h1>{{ stage === 'credentials' ? (mode === 'login' ? 'Welcome back' : mode === 'register' ? 'Create an account' : 'Reset your password') : stage === 'enroll' ? 'Add your email' : 'Check your email' }}</h1>
       <p class="hint">
-        {{ stage === 'credentials' ? (mode === 'login' ? 'Sign in with your username and password.' : 'Register with an email address you can verify.') : stage === 'enroll' ? 'Your existing account needs a verified email address before you can sign in.' : `Enter the six-digit code sent to ${maskedEmail}. It expires in five minutes.` }}
+        {{ stage === 'credentials' ? (mode === 'login' ? 'Sign in with your username and password.' : mode === 'register' ? 'Register with an email address you can verify.' : 'Enter the email address linked to your account.') : stage === 'enroll' ? 'Your existing account needs a verified email address before you can sign in.' : stage === 'reset-code' ? 'Enter the six-digit code from your email and choose a new password. The code expires in five minutes.' : `Enter the six-digit code sent to ${maskedEmail}. It expires in five minutes.` }}
       </p>
-      <div v-if="stage === 'credentials'" class="tabs">
+      <div v-if="stage === 'credentials' && mode !== 'reset'" class="tabs">
         <button :class="{ active: mode === 'login' }" type="button" @click="reset('login')">Sign in</button>
         <button :class="{ active: mode === 'register' }" type="button" @click="reset('register')">Register</button>
       </div>
       <form @submit.prevent="submit">
         <template v-if="stage === 'credentials'">
-          <label for="username">Username</label>
-          <input id="username" v-model.trim="form.username" autocomplete="username" minlength="3" maxlength="30" placeholder="Enter your username" required>
-          <template v-if="mode === 'register'">
+          <template v-if="mode === 'reset'">
             <label for="email">Email address</label>
             <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
           </template>
-          <label for="password">Password</label>
-          <input id="password" v-model="form.password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" :minlength="mode === 'register' ? 8 : undefined" type="password" :placeholder="mode === 'register' ? 'At least 8 characters' : 'Enter your password'" required>
-          <template v-if="mode === 'register'">
-            <small class="password-hint">Use at least 8 characters with uppercase and lowercase letters and a number.</small>
-            <label for="password-confirm">Confirm password</label>
-            <input id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" minlength="8" type="password" placeholder="Enter your password again" required>
+          <template v-else>
+            <label for="username">Username</label>
+            <input id="username" v-model.trim="form.username" autocomplete="username" minlength="3" maxlength="30" placeholder="Enter your username" required>
+            <template v-if="mode === 'register'">
+              <label for="email">Email address</label>
+              <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
+            </template>
+            <label for="password">Password</label>
+            <input id="password" v-model="form.password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" :minlength="mode === 'register' ? 8 : undefined" type="password" :placeholder="mode === 'register' ? 'At least 8 characters' : 'Enter your password'" required>
+            <template v-if="mode === 'register'">
+              <small class="password-hint">Use at least 8 characters with uppercase and lowercase letters and a number.</small>
+              <label for="password-confirm">Confirm password</label>
+              <input id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" minlength="8" type="password" placeholder="Enter your password again" required>
+            </template>
           </template>
         </template>
         <template v-else-if="stage === 'enroll'">
           <label for="email">Email address</label>
           <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
+        </template>
+        <template v-else-if="stage === 'reset-code'">
+          <label for="code">Six-digit code</label>
+          <input id="code" v-model.trim="form.code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          <label for="password">New password</label>
+          <input id="password" v-model="form.password" autocomplete="new-password" type="password" minlength="8" placeholder="At least 8 characters" required>
+          <small class="password-hint">Use uppercase and lowercase letters and a number.</small>
+          <label for="password-confirm">Confirm new password</label>
+          <input id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter your new password again" required>
         </template>
         <template v-else>
           <label for="code">Six-digit code</label>
@@ -143,9 +182,15 @@ async function resend() {
         <p v-if="notice" class="message success" role="status">{{ notice }}</p>
         <p v-if="error" class="message error" role="alert">{{ error }}</p>
         <button class="submit-button" :disabled="loading" type="submit">
-          {{ loading ? 'Please wait…' : stage === 'credentials' ? (mode === 'login' ? 'Sign in' : 'Register') : stage === 'enroll' ? 'Send verification code' : 'Verify code' }}
+          {{ loading ? 'Please wait…' : stage === 'credentials' ? (mode === 'login' ? 'Sign in' : mode === 'register' ? 'Register' : 'Send reset code') : stage === 'enroll' ? 'Send verification code' : stage === 'reset-code' ? 'Reset password' : 'Verify code' }}
         </button>
+        <button v-if="stage === 'credentials' && mode === 'login'" class="text-button" type="button" @click="reset('reset')">Forgot password?</button>
+        <button v-else-if="stage === 'credentials' && mode === 'reset'" class="text-button" type="button" @click="reset('login')">Back to sign in</button>
         <template v-if="stage === 'activation' || stage === 'login'">
+          <button class="text-button" type="button" :disabled="loading" @click="resend">Resend code</button>
+          <button class="text-button" type="button" @click="reset('login')">Back to sign in</button>
+        </template>
+        <template v-else-if="stage === 'reset-code'">
           <button class="text-button" type="button" :disabled="loading" @click="resend">Resend code</button>
           <button class="text-button" type="button" @click="reset('login')">Back to sign in</button>
         </template>

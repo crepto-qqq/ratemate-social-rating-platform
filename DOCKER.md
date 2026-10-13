@@ -18,6 +18,7 @@ PowerShell 复制文件使用 `Copy-Item .env.example .env`。
 浏览器访问 http://localhost:5173；后端端口为 http://localhost:8000。
 注册及登录验证码默认发送到本地 Mailpit，打开 http://localhost:8025 查看邮件。
 注册时需输入邮箱并验证；此后每次登录仍需输入邮件验证码。
+登录页的 Forgot password? 可向已验证邮箱发送 5 分钟有效的重置码，输入验证码和新密码后重新登录。
 旧账号首次登录需绑定并验证邮箱。
 数据库健康检查通过后，后端自动 migrate 并启动。
 这是新的独立数据库，不会自动导入本机原有数据。
