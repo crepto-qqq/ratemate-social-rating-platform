@@ -2,6 +2,7 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
+import uuid
 
 
 class User_profile(models.Model):
@@ -32,3 +33,22 @@ class User_profile(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class AccountSecurity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    email_verified = models.BooleanField(default=False)
+
+
+class OtpChallenge(models.Model):
+    ACTIVATION = 'activation'
+    LOGIN = 'login'
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    purpose = models.CharField(max_length=20)
+    code_hash = models.CharField(max_length=128)
+    session_key = models.CharField(max_length=40)
+    expires_at = models.DateTimeField()
+    last_sent_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    consumed = models.BooleanField(default=False)

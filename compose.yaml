@@ -21,6 +21,13 @@ services:
       RATEMATE_DB_HOST: db
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
       DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      EMAIL_HOST: ${EMAIL_HOST:-mailpit}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-false}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-ratemate@localhost}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -29,6 +36,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
   frontend:
     build: ./frontend
     environment:

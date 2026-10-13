@@ -16,7 +16,7 @@ def _comment_data(request, comment):
         'createdAt': comment.created_at.isoformat(),
         'updatedAt': (comment.updated_at or comment.created_at).isoformat(),
         'isEdited': comment.updated_at is not None,
-        'canManage': request.user.is_authenticated and comment.author.user_id == request.user.pk,
+        'canManage': current_profile(request) is not None and comment.author.user_id == request.user.pk,
         'author': {
             'id': comment.author_id,
             'name': comment.author.userName,
@@ -66,7 +66,7 @@ def comment_collection_view(request, template_id):
 
 @require_http_methods(['PATCH', 'DELETE'])
 def comment_detail_view(request, template_id, comment_id):
-    if not request.user.is_authenticated:
+    if current_profile(request) is None:
         return JsonResponse({'detail': 'Log in to manage comments.'}, status=401)
     comment = get_object_or_404(Comment.objects.select_related('author'), pk=comment_id, template_id=template_id)
     if comment.author.user_id != request.user.pk:

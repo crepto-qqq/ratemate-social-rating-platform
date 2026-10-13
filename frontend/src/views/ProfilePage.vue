@@ -183,12 +183,12 @@ onMounted(loadProfile)
 
         <label class="editor-field">
           New password <span class="optional">Leave blank to keep your current password</span>
-          <input v-model="profile.password" autocomplete="new-password" type="password" minlength="6" placeholder="Enter a new password" @input="changed">
+          <input v-model="profile.password" autocomplete="new-password" type="password" minlength="8" placeholder="8+ characters, uppercase, lowercase, number" @input="changed">
         </label>
 
         <label class="editor-field">
           Confirm new password
-          <input v-model="profile.passwordConfirm" autocomplete="new-password" type="password" minlength="6" placeholder="Enter the new password again" @input="changed">
+          <input v-model="profile.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter the new password again" @input="changed">
         </label>
       </div>
 

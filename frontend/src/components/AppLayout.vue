@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
+import { apiBaseUrl, apiFetch } from '../api.js'
 import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
 
 const route = useRoute()
@@ -24,6 +25,17 @@ function search() {
   const value = query.value.trim()
   if (value) router.push({ path: '/home_page', query: { q: value } })
 }
+
+async function signOut() {
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/api/auth/logout/`, { method: 'POST' })
+    if (!response.ok) throw new Error('Could not sign out.')
+    currentProfile.value = null
+    await router.push('/login')
+  } catch (error) {
+    profileError.value = error.message || 'Could not sign out.'
+  }
+}
 </script>
 
 <template>
@@ -39,6 +51,7 @@ function search() {
         </RouterLink>
       </nav>
       <div class="sidebar-bottom">
+        <button class="sign-out" type="button" @click="signOut">Sign out</button>
         <RouterLink class="profile" to="/profile">
           <span class="avatar"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></span>
           <div><strong>{{ profileName }}</strong><small>{{ profileError || 'Your personal space' }}</small></div>
@@ -62,6 +75,7 @@ function search() {
 </template>
 
 <style scoped>
+.sign-out { border: 0; background: transparent; color: #697265; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 </style>

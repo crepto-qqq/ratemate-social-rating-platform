@@ -1,11 +1,16 @@
 from uuid import uuid4
 
 from .models import User_profile
+from .models import AccountSecurity
 
 
 def current_profile(request):
     user = getattr(request, 'user', None)
     if not user or not user.is_authenticated:
+        return None
+    if request.session.get('auth_mfa_user') != user.pk:
+        return None
+    if not AccountSecurity.objects.filter(user=user, email_verified=True).exists():
         return None
     return ensure_profile(user)
 

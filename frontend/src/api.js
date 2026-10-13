@@ -10,9 +10,9 @@ export async function apiFetch(url, options = {}) {
       credentials: 'include',
       cache: 'no-store',
     })
-    if (!tokenResponse.ok) throw new Error('无法获取 CSRF token，请刷新页面后重试。')
+    if (!tokenResponse.ok) throw new Error('Unable to get a security token. Refresh the page and try again.')
     const { csrfToken } = await tokenResponse.json()
-    if (!csrfToken) throw new Error('服务器没有返回 CSRF token。')
+    if (!csrfToken) throw new Error('The server did not return a security token.')
     headers.set('X-CSRFToken', csrfToken)
   }
   return fetch(url, { ...options, headers, credentials: 'include' })
