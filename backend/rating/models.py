@@ -74,3 +74,23 @@ class RatingScore(models.Model):
 
     def __str__(self):
         return f'{self.item} - {self.criterion}: {self.score}'
+
+
+class RatingResultLike(models.Model):
+    result = models.ForeignKey(RatingResult, on_delete=models.CASCADE, related_name='likes')
+    user = models.ForeignKey(User_profile, on_delete=models.CASCADE, related_name='rating_likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['result', 'user'], name='unique_rating_result_like')]
+
+
+class RatingResultComment(models.Model):
+    result = models.ForeignKey(RatingResult, on_delete=models.CASCADE, related_name='comments')
+    author = models.ForeignKey(User_profile, on_delete=models.CASCADE, related_name='rating_comments')
+    content = models.CharField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']

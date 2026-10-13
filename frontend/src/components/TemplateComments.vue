@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 import { currentProfile, profileLoading } from '../currentProfile.js'
 
-const props = defineProps({ templateId: { type: Number, required: true } })
+const props = defineProps({ templateId: Number, resultId: Number })
 const comments = ref([])
 const loading = ref(false)
 const loadError = ref('')
@@ -18,7 +18,9 @@ const hasMore = ref(false)
 const page = ref(0)
 const validDraft = computed(() => draft.value.trim().length > 0 && draft.value.trim().length <= 2000)
 const validEdit = computed(() => editContent.value.trim().length > 0 && editContent.value.trim().length <= 2000)
-const endpoint = `${apiBaseUrl}/api/templates/${props.templateId}/comments/`
+const endpoint = props.resultId
+  ? `${apiBaseUrl}/api/ratings/public/${props.resultId}/comments/`
+  : `${apiBaseUrl}/api/templates/${props.templateId}/comments/`
 let active = true
 let requestVersion = 0
 
@@ -112,8 +114,8 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
   <section class="detail-section comments-section" aria-label="Comments">
     <h2>Comments</h2>
     <form v-if="currentProfile" class="comment-form" @submit.prevent="postComment">
-      <label :for="`comment-${templateId}`">Add a comment</label>
-      <textarea :id="`comment-${templateId}`" v-model="draft" maxlength="2000" rows="3" placeholder="Share your thoughts about this template…" :disabled="busy" required />
+      <label :for="`comment-${resultId || templateId}`">Add a comment</label>
+      <textarea :id="`comment-${resultId || templateId}`" v-model="draft" maxlength="2000" rows="3" :placeholder="resultId ? 'Share your thoughts about this ranking…' : 'Share your thoughts about this template…'" :disabled="busy" required />
       <div class="form-actions"><small>{{ draft.length }}/2000</small><button class="action-button primary" type="submit" :disabled="busy || loading || !validDraft">{{ busy ? 'Saving…' : 'Post comment' }}</button></div>
     </form>
     <p v-else-if="profileLoading" role="status">Checking your account…</p>

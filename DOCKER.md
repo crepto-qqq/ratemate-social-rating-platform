@@ -69,3 +69,11 @@ docker compose up -d
 ```
 
 本配置用于本地开发。正式部署需另配前端静态服务器、生产 WSGI/ASGI 服务、DEBUG=False 和密钥。
+
+## 推荐系统
+
+数据库现使用支持 pgvector 的 PostgreSQL 17 镜像，继续复用原有数据卷。
+运行 `docker compose up -d --build` 会执行迁移，并启动 `embeddings` 后台服务。
+首次运行需下载多语言模型，随后在本机 CPU 上生成模板向量；模型下载或生成暂时失败时，首页使用热门与最近内容。
+模型文件保存在 `embedding_models` 卷中。不要使用 `down -v` 来升级推荐系统，它会删除数据库和其他数据卷。
+实现规则及维护命令见 [RECOMMENDATIONS.md](RECOMMENDATIONS.md)。
