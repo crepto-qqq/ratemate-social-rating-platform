@@ -1,7 +1,7 @@
 # Local development only.
 services:
   db:
-    image: postgres:17-bookworm
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: ratemate
       POSTGRES_USER: ratemate_user
@@ -29,6 +29,27 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/auth/csrf/', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+  embeddings:
+    build: ./backend
+    command: python manage.py embed_templates --watch
+    environment:
+      RATEMATE_DB_PASSWORD: ${RATEMATE_DB_PASSWORD:?Set RATEMATE_DB_PASSWORD in root .env}
+      RATEMATE_DB_HOST: db
+      EMBEDDING_CACHE_DIR: /models
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    volumes:
+      - ./backend:/app
+      - embedding_models:/models
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
   frontend:
     build: ./frontend
     environment:
@@ -46,3 +67,4 @@ volumes:
   postgres_data:
   media_data:
   frontend_node_modules:
+  embedding_models:

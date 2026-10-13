@@ -20,6 +20,7 @@ from django.conf.urls.static import static
 from django.urls import include, path
 
 urlpatterns = [
+    path('api/recommendations/', include('recommendations.urls')),
     # path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     path('api/templates/', include('create_template.urls')),

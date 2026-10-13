@@ -77,7 +77,7 @@ def _template_data(request, template):
 
 def _result_data(request, result):
     template = result.template
-    scores = list(result.scores.select_related('item', 'criterion').all())
+    scores = list(result.scores.all())
     score_map = {(score.item_id, score.criterion_id): score.score for score in scores}
     total_weight = sum(criterion.weight for criterion in template.criteria.all())
     ranking = []
@@ -89,6 +89,7 @@ def _result_data(request, result):
         ranking.append({
             'itemId': item.id,
             'name': item.name,
+            'imageUrl': request.build_absolute_uri(item.image.url) if item.image else '',
             'score': weighted_score / total_weight * 20 if total_weight else 0,
         })
     ranking.sort(key=lambda entry: entry['score'], reverse=True)
