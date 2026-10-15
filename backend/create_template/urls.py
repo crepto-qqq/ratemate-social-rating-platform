@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import views
 from . import comment_views
+from . import owner_views
 
 
 app_name = 'create_template'
@@ -9,6 +10,7 @@ app_name = 'create_template'
 urlpatterns = [
     path('', views.create_template_view, name='create'),
     path('favorites/', views.favorite_list_view, name='favorite-list'),
+    path('mine/hidden/', owner_views.hidden_content_view, name='hidden-content'),
     path('<int:template_id>/', views.template_detail_view, name='detail'),
     path('<int:template_id>/favorite/', views.favorite_detail_view, name='favorite-detail'),
     path('<int:template_id>/comments/', comment_views.comment_collection_view, name='comment-list'),

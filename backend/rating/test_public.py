@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -6,6 +7,7 @@ from django.test import Client, TestCase
 from accounts.profiles import ensure_profile
 from accounts.testing import verified_force_login
 from create_template.models import Template, Criterion, Item
+from .views import _validate_scores
 from .models import RatingResult, RatingScore, RatingResultLike, RatingResultComment
 
 
@@ -84,6 +86,29 @@ class PublicRatingTests(TestCase):
         self.assertEqual(self.client.post(self.url + 'like/').status_code, 404)
         self.assertEqual(self.client.get('/api/ratings/public/').json()['results'], [])
 
+    def test_rating_creation_rechecks_template_after_validation(self):
+        self.client.force_login(self.viewer_user)
+        baseline = RatingResult.objects.count()
+        payload = {
+            'templateId': self.template.pk,
+            'isPublic': True,
+            'scores': [
+                {'itemId': item.pk, 'criterionId': self.criterion.pk, 'score': 4}
+                for item in (self.first, self.second)
+            ],
+        }
+
+        def hide_after_validation(template, scores):
+            result = _validate_scores(template, scores)
+            Template.objects.filter(pk=template.pk).update(is_hidden=True)
+            return result
+
+        with patch('rating.views._validate_scores', side_effect=hide_after_validation):
+            response = self.client.post('/api/ratings/', json.dumps(payload), content_type='application/json')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(RatingResult.objects.count(), baseline)
+
     def test_result_comments_are_separate_and_manageable_by_author(self):
         verified_force_login(self.client, self.viewer_user)
         response = self.client.post(self.url + 'comments/', json.dumps({'content': 'Great ranking'}), content_type='application/json')
@@ -100,6 +125,25 @@ class PublicRatingTests(TestCase):
         self.assertTrue(response.json()['isEdited'])
         self.assertEqual(self.client.delete(comment_url).status_code, 204)
         self.assertEqual(RatingResultComment.objects.count(), 0)
+
+    def test_comment_author_can_delete_after_template_is_hidden(self):
+        self.client.force_login(self.viewer_user)
+        response = self.client.post(
+            self.url + 'comments/', json.dumps({'content': 'Remove later'}),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 201)
+        comment_url = self.url + f"comments/{response.json()['id']}/"
+        self.template.is_hidden = True
+        self.template.save(update_fields=['is_hidden'])
+
+        self.assertEqual(
+            self.client.patch(comment_url, json.dumps({'content': 'Edited'}),
+                              content_type='application/json').status_code,
+            404,
+        )
+        self.assertEqual(self.client.delete(comment_url).status_code, 204)
+        self.assertFalse(RatingResultComment.objects.exists())
 
     def test_comment_validation_and_guest_permissions(self):
         self.assertEqual(self.client.post(self.url + 'comments/', '{}', content_type='application/json').status_code, 401)

@@ -15,6 +15,7 @@ defineProps({ name: { type: String, required: true } })
     <template v-else-if="name === 'back'"><path d="M19 12H5m5-5-5 5 5 5"/></template>
     <template v-else-if="name === 'sparkle'"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></template>
     <template v-else-if="name === 'star'"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></template>
+    <template v-else-if="name === 'shield'"><path d="M12 2 4 5v6c0 5.2 3.2 8.7 8 11 4.8-2.3 8-5.8 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></template>
     <template v-else><path d="m9 7 5 5-5 5"/></template>
   </svg>
 </template>

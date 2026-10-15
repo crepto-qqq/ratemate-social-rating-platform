@@ -328,18 +328,21 @@ def password_reset_confirm_view(request):
     logout(request)
     return JsonResponse({'step': 'password_reset_complete', 'detail': 'Password updated. Sign in with your new password.'})
 
-
 @require_POST
 def logout_view(request):
     logout(request)
     return JsonResponse({'detail': 'Signed out.'})
 
-
 def _profile_response(request, profile):
     avatar_url = request.build_absolute_uri(profile.avatar.url) if profile.avatar else ''
-    return {'id': profile.id, 'userName': profile.userName,
-            'email': '' if profile.email.endswith('@profiles.invalid') else profile.email,
-            'avatarUrl': avatar_url, 'bio': profile.bio}
+    return {
+        'id': profile.id,
+        'userName': profile.userName,
+        'email': '' if profile.email.endswith('@profiles.invalid') else profile.email,
+        'avatarUrl': avatar_url,
+        'bio': profile.bio,
+        'isAdmin': request.user.is_staff or request.user.is_superuser,
+    }
 
 
 @require_http_methods(['GET', 'POST'])

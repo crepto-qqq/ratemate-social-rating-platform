@@ -25,7 +25,7 @@ def recommendation_view(request):
         field = 'results'
     else:
         favorite_ids = set(Favorite.objects.filter(user=user).values_list('template_id', flat=True)) if user else set()
-        objects = {template.pk: template for template in Template.objects.filter(pk__in=selected).select_related('owner').prefetch_related('criteria', 'items', 'favorite_records')}
+        objects = {template.pk: template for template in Template.objects.filter(pk__in=selected, is_hidden=False).select_related('owner').prefetch_related('criteria', 'items', 'favorite_records')}
         data = [dict(_template_data(request, objects[pk], pk in favorite_ids), recommendationReason=reasons[str(pk)]) for pk in selected if pk in objects]
         field = 'templates'
     return JsonResponse({field: data, 'hasMore': len(ids) > start + 20, 'personalized': personalized})
