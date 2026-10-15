@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from create_template.models import Template, Criterion, Item, Favorite
 from rating.models import RatingResult, RatingScore, RatingResultLike
 from .embedding import MODEL
@@ -27,7 +28,7 @@ class RecommendationTests(TestCase):
         self.other_user = get_user_model().objects.create_user(username='author', password='test-password')
         self.viewer = ensure_profile(self.user)
         self.author = ensure_profile(self.other_user)
-        self.client.force_login(self.user)
+        verified_force_login(self.client, self.user)
         self.coffee = self.template('Coffee and cafes', 0)
         self.similar = self.template('Espresso tasting', 0)
         self.unrelated = self.template('Camera equipment', 1)

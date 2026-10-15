@@ -29,4 +29,3 @@ def recommendation_view(request):
         data = [dict(_template_data(request, objects[pk], pk in favorite_ids), recommendationReason=reasons[str(pk)]) for pk in selected if pk in objects]
         field = 'templates'
     return JsonResponse({field: data, 'hasMore': len(ids) > start + 20, 'personalized': personalized})
-

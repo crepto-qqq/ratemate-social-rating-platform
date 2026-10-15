@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from .models import Criterion, Favorite, Item, Template
 
 
@@ -29,7 +30,7 @@ class DiscoverTests(TestCase):
         self.assertIn('/media/template_items/test.png', listing[0]['items'][0]['imageUrl'])
         self.assertEqual(listing[0]['popularity'], 1)
         self.assertFalse(listing[0]['isFavorite'])
-        self.client.force_login(self.user)
+        verified_force_login(self.client, self.user)
         detail = self.client.get(f'/api/templates/{template.pk}/').json()
         self.assertTrue(detail['isFavorite'])
         self.assertEqual(detail['criteria'][0]['weight'], 3)
@@ -48,13 +49,13 @@ class DiscoverTests(TestCase):
         self.assertEqual(self.client.get('/api/templates/999999/').status_code, 404)
 
     def test_profile_hides_internal_email_placeholder(self):
-        self.client.force_login(self.user)
+        verified_force_login(self.client, self.user)
         profile = self.client.get('/api/auth/profile/').json()
         self.assertEqual(profile['userName'], 'author')
         self.assertEqual(profile['email'], '')
 
     def test_creation_rejects_non_integer_weights_without_creating_template(self):
-        self.client.force_login(self.user)
+        verified_force_login(self.client, self.user)
         for weight in (1.5, 1.0, '1.5', '2', True, None, 0, 11):
             with self.subTest(weight=weight):
                 response = self.client.post('/api/templates/', {

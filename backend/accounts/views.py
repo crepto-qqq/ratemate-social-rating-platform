@@ -1,12 +1,25 @@
 import json
+import hashlib
+import re
+import secrets
+from datetime import timedelta
+from uuid import UUID, uuid4
 
-from django.contrib.auth import authenticate, get_user_model, login
+from django.contrib.auth import get_user_model, login, logout, update_session_auth_hash
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.core.cache import cache
+from django.db import IntegrityError, transaction
+from django.db.models import F, Sum
 from django.http import JsonResponse
-from django.db import transaction
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 
+from .models import AccountSecurity, OtpChallenge, User_profile
 from .profiles import current_profile, ensure_profile
 
 
@@ -16,86 +29,312 @@ def csrf_view(request):
     return JsonResponse({'csrfToken': get_token(request)})
 
 
-def _read_credentials(request):
+def _body(request):
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
-        return None, None, JsonResponse(
-            {'detail': '请求内容必须是有效的 JSON。'},
-            status=400,
-        )
+        return None
+    return data if isinstance(data, dict) else None
 
-    if not isinstance(data, dict):
-        return None, None, JsonResponse(
-            {'detail': '请求内容必须是 JSON 对象。'},
-            status=400,
-        )
 
-    username = data.get('username')
-    password = data.get('password')
+def _error(message, status=400):
+    return JsonResponse({'detail': message}, status=status)
 
-    if not isinstance(username, str) or not isinstance(password, str):
-        return None, None, JsonResponse(
-            {'detail': '用户名和密码不能为空。'},
-            status=400,
-        )
 
-    username = username.strip()
+def _credentials(request):
+    data = _body(request)
+    if data is None or not isinstance(data.get('username'), str) or not isinstance(data.get('password'), str):
+        return None, None, _error('Username and password are required.')
+    username, password = data['username'].strip(), data['password']
     if not username or not password:
-        return None, None, JsonResponse(
-            {'detail': '用户名和密码不能为空。'},
-            status=400,
-        )
-
+        return None, None, _error('Username and password are required.')
     return username, password, None
+
+
+def _email(value):
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    from django.core.validators import validate_email
+    try:
+        validate_email(value)
+    except ValidationError:
+        return None
+    return value if len(value) <= 254 else None
+
+
+def _email_taken(email, user=None):
+    users = get_user_model().objects.filter(email__iexact=email)
+    profiles = User_profile.objects.filter(email__iexact=email)
+    if user is not None:
+        users = users.exclude(pk=user.pk)
+        profiles = profiles.exclude(user=user)
+    return users.exists() or profiles.exists()
+
+
+def _session_key(request):
+    if not request.session.session_key:
+        request.session.save()
+    return request.session.session_key
+
+
+def _send_challenge(request, user, purpose):
+    now = timezone.now()
+    if _too_many_attempts(user):
+        return None, _error('Too many incorrect codes. Try again in 10 minutes.', 429)
+    if OtpChallenge.objects.filter(user=user, last_sent_at__gte=now - timedelta(hours=1)).count() >= 10:
+        return None, _error('Too many codes requested. Try again later.', 429)
+    code = f'{secrets.randbelow(1000000):06d}'
+    challenge = OtpChallenge(user=user, purpose=purpose, code_hash=make_password(code),
+                             session_key=_session_key(request), expires_at=now + timedelta(minutes=5),
+                             last_sent_at=now)
+    subject = {
+        OtpChallenge.ACTIVATION: 'RateMate email verification',
+        OtpChallenge.LOGIN: 'RateMate login code',
+        OtpChallenge.RESET: 'RateMate password reset code',
+    }[purpose]
+    try:
+        message = (f'Your RateMate password reset code is {code}. It expires in 5 minutes.'
+                   if purpose == OtpChallenge.RESET else f'Your RateMate code is {code}. It expires in 5 minutes.')
+        send_mail(subject, message, None,
+                  [user.email], fail_silently=False)
+    except Exception:
+        return None, _error('Could not send the email. Please try again later.', 503)
+    OtpChallenge.objects.filter(user=user, purpose=purpose, consumed=False).update(consumed=True)
+    challenge.save()
+    return challenge, None
+
+
+def _too_many_attempts(user):
+    total = OtpChallenge.objects.filter(
+        user=user, last_sent_at__gte=timezone.now() - timedelta(minutes=10),
+    ).aggregate(total=Sum('attempts'))['total'] or 0
+    return total >= 5
+
+
+def _step(challenge, status=200):
+    email = challenge.user.email
+    local, domain = email.split('@', 1)
+    return JsonResponse({'step': challenge.purpose, 'challengeId': str(challenge.pk),
+                         'maskedEmail': f'{local[:1]}***@{domain}', 'retryAfter': 60,
+                         'detail': 'Check your email for a six-digit code.'}, status=status)
+
+
+def _validate_new_password(password, user):
+    if not re.search('[A-Z]', password) or not re.search('[a-z]', password) or not re.search('[0-9]', password):
+        return 'Password must include uppercase and lowercase letters and a number.'
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        return ' '.join(exc.messages)
+    return None
 
 
 @require_POST
 def register_view(request):
-    username, password, error_response = _read_credentials(request)
-    if error_response:
-        return error_response
-
-    if len(username) < 3 or len(username) > 30:
-        return JsonResponse(
-            {'detail': '用户名长度必须为 3 到 30 个字符。'},
-            status=400,
-        )
-    if len(password) < 6:
-        return JsonResponse(
-            {'detail': '密码不能少于 6 个字符。'},
-            status=400,
-        )
-
+    username, password, error = _credentials(request)
+    if error:
+        return error
+    email = _email(_body(request).get('email'))
+    if not email:
+        return _error('A valid email address is required.')
+    if not 3 <= len(username) <= 30:
+        return _error('Username must be 3 to 30 characters long.')
     User = get_user_model()
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({'detail': '该用户名已被使用。'}, status=409)
-
-    with transaction.atomic():
-        user = User.objects.create_user(username=username, password=password)
-        ensure_profile(user)
-    return JsonResponse({'message': '注册成功，请登录。'}, status=201)
+    problem = _validate_new_password(password, User(username=username, email=email))
+    if problem:
+        return _error(problem)
+    if User.objects.filter(username__iexact=username).exists():
+        return _error('Username is already in use.', 409)
+    if _email_taken(email):
+        return _error('Email is already in use.', 409)
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(username=username, email=email, password=password, is_active=False)
+            AccountSecurity.objects.create(user=user)
+            ensure_profile(user)
+            challenge, error = _send_challenge(request, user, OtpChallenge.ACTIVATION)
+            if error:
+                transaction.set_rollback(True)
+                return error
+    except IntegrityError:
+        return _error('Username or email is already in use.', 409)
+    return _step(challenge, 201)
 
 
 @require_POST
 def login_view(request):
-    username, password, error_response = _read_credentials(request)
-    if error_response:
-        return error_response
+    username, password, error = _credentials(request)
+    if error:
+        return error
+    user = get_user_model().objects.filter(username=username).first()
+    if user is None or not user.check_password(password):
+        return _error('Invalid username or password.', 401)
+    security = AccountSecurity.objects.filter(user=user).first()
+    if security is None:
+        if not user.is_active:
+            return _error('This account is disabled.', 403)
+        request.session['pending_email_user'] = user.pk
+        return JsonResponse({'step': 'email_required', 'detail': 'Add and verify your email address before signing in.'})
+    request.session.pop('pending_email_user', None)
+    if not security.email_verified:
+        purpose = OtpChallenge.ACTIVATION
+    elif user.is_active:
+        purpose = OtpChallenge.LOGIN
+    else:
+        return _error('This account is disabled.', 403)
+    challenge, error = _send_challenge(request, user, purpose)
+    return error or _step(challenge)
 
-    user = authenticate(request, username=username, password=password)
-    if user is None:
-        return JsonResponse({'detail': '用户名或密码错误。'}, status=401)
 
-    login(request, user)
-    return JsonResponse({'message': '登录成功！'})
+@require_POST
+def enroll_email_view(request):
+    user_id = request.session.get('pending_email_user')
+    user = get_user_model().objects.filter(pk=user_id).first() if user_id else None
+    if user is None or not user.is_active or AccountSecurity.objects.filter(user=user).exists():
+        return _error('Sign in with your username and password first.', 403)
+    data = _body(request)
+    email = _email(data.get('email')) if data else None
+    if not email:
+        return _error('A valid email address is required.')
+    if _email_taken(email, user):
+        return _error('Email is already in use.', 409)
+    previous = user.email
+    user.email = email
+    user.save(update_fields=['email'])
+    challenge, error = _send_challenge(request, user, OtpChallenge.ACTIVATION)
+    if error:
+        user.email = previous
+        user.save(update_fields=['email'])
+        return error
+    AccountSecurity.objects.create(user=user)
+    return _step(challenge)
 
+
+def _challenge(request):
+    data = _body(request)
+    if not data or not isinstance(data.get('challengeId'), str):
+        return None
+    try:
+        challenge_id = UUID(data['challengeId'])
+    except ValueError:
+        return None
+    return OtpChallenge.objects.select_related('user').filter(
+        pk=challenge_id, session_key=_session_key(request), consumed=False).first()
+
+
+@require_POST
+def verify_view(request):
+    challenge = _challenge(request)
+    data = _body(request)
+    code = data.get('code') if data else None
+    if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
+            or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code)):
+        return _error('Invalid or expired code.')
+    if _too_many_attempts(challenge.user):
+        return _error('Too many incorrect codes. Try again in 10 minutes.', 429)
+    if challenge.expires_at <= timezone.now() or challenge.attempts >= 5:
+        return _error('Invalid or expired code.')
+    if not check_password(code, challenge.code_hash):
+        OtpChallenge.objects.filter(pk=challenge.pk, consumed=False).update(attempts=challenge.attempts + 1)
+        return _error('Invalid or expired code.')
+    with transaction.atomic():
+        challenge = OtpChallenge.objects.select_for_update().get(pk=challenge.pk)
+        if challenge.consumed or challenge.expires_at <= timezone.now() or challenge.attempts >= 5:
+            return _error('Invalid or expired code.')
+        challenge.consumed = True
+        challenge.save(update_fields=['consumed'])
+        if challenge.purpose == OtpChallenge.ACTIVATION:
+            AccountSecurity.objects.update_or_create(user=challenge.user, defaults={'email_verified': True})
+            challenge.user.is_active = True
+            challenge.user.save(update_fields=['is_active'])
+            profile = ensure_profile(challenge.user)
+            profile.email = challenge.user.email
+            profile.save(update_fields=['email'])
+            request.session.pop('pending_email_user', None)
+            return JsonResponse({'step': 'login_required', 'detail': 'Email verified. Sign in to continue.'})
+        if not AccountSecurity.objects.filter(user=challenge.user, email_verified=True).exists() or not challenge.user.is_active:
+            return _error('Account is not verified.', 403)
+        login(request, challenge.user, backend='django.contrib.auth.backends.ModelBackend')
+        request.session['auth_mfa_user'] = challenge.user.pk
+        return JsonResponse({'step': 'authenticated', 'detail': 'Signed in successfully.'})
+
+
+@require_POST
+def resend_view(request):
+    challenge = _challenge(request)
+    if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
+            or challenge.expires_at <= timezone.now()):
+        return _error('Invalid or expired code.')
+    if challenge.last_sent_at > timezone.now() - timedelta(seconds=60):
+        return _error('Please wait before requesting another code.', 429)
+    replacement, error = _send_challenge(request, challenge.user, challenge.purpose)
+    return error or _step(replacement)
+
+
+@require_POST
+def password_reset_request_view(request):
+    data = _body(request)
+    email = _email(data.get('email')) if data else None
+    if not email:
+        return _error('A valid email address is required.')
+    cache_key = f'password-reset:{hashlib.sha256(email.encode()).hexdigest()}'
+    if not cache.add(cache_key, True, timeout=60):
+        return _error('Please wait one minute before requesting another code.', 429)
+    user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
+    challenge_id = uuid4()
+    if user and AccountSecurity.objects.filter(user=user, email_verified=True).exists():
+        challenge, _ = _send_challenge(request, user, OtpChallenge.RESET)
+        if challenge:
+            challenge_id = challenge.pk
+    return JsonResponse({
+        'step': 'password_reset', 'challengeId': str(challenge_id), 'retryAfter': 60,
+        'detail': 'If an active account uses this email, a reset code has been sent.',
+    })
+
+
+@require_POST
+def password_reset_confirm_view(request):
+    data = _body(request)
+    challenge = _challenge(request)
+    code = data.get('code') if data else None
+    password = data.get('password') if data else None
+    if (challenge is None or challenge.purpose != OtpChallenge.RESET
+            or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code)
+            or not isinstance(password, str)):
+        return _error('Invalid or expired reset code.')
+    if _too_many_attempts(challenge.user):
+        return _error('Too many incorrect codes. Try again in 10 minutes.', 429)
+    if (challenge.expires_at <= timezone.now() or challenge.attempts >= 5
+            or not challenge.user.is_active
+            or not AccountSecurity.objects.filter(user=challenge.user, email_verified=True).exists()):
+        return _error('Invalid or expired reset code.')
+    problem = _validate_new_password(password, challenge.user)
+    if problem:
+        return _error(problem)
+    if not check_password(code, challenge.code_hash):
+        OtpChallenge.objects.filter(pk=challenge.pk, consumed=False, attempts__lt=5).update(attempts=F('attempts') + 1)
+        return _error('Invalid or expired reset code.')
+    with transaction.atomic():
+        challenge = OtpChallenge.objects.select_for_update().get(pk=challenge.pk)
+        if (challenge.consumed or challenge.expires_at <= timezone.now() or challenge.attempts >= 5
+                or not challenge.user.is_active):
+            return _error('Invalid or expired reset code.')
+        user = challenge.user
+        user.set_password(password)
+        user.save(update_fields=['password'])
+        User_profile.objects.filter(user=user).update(password=user.password)
+        OtpChallenge.objects.filter(user=user, consumed=False).update(consumed=True)
+    logout(request)
+    return JsonResponse({'step': 'password_reset_complete', 'detail': 'Password updated. Sign in with your new password.'})
+
+@require_POST
+def logout_view(request):
+    logout(request)
+    return JsonResponse({'detail': 'Signed out.'})
 
 def _profile_response(request, profile):
-    avatar_url = ''
-    if profile.avatar:
-        avatar_url = request.build_absolute_uri(profile.avatar.url)
-
+    avatar_url = request.build_absolute_uri(profile.avatar.url) if profile.avatar else ''
     return {
         'id': profile.id,
         'userName': profile.userName,
@@ -106,43 +345,40 @@ def _profile_response(request, profile):
     }
 
 
-def _current_profile(request):
-    return current_profile(request)
-
-
 @require_http_methods(['GET', 'POST'])
 def profile_view(request):
-    profile = _current_profile(request)
+    profile = current_profile(request)
     if profile is None:
-        return JsonResponse({'detail': '未找到当前用户的个人资料。'}, status=404)
-
+        return _error('Profile unavailable. Please sign in.', 404)
     if request.method == 'GET':
         return JsonResponse(_profile_response(request, profile))
-
     username = request.POST.get('userName', profile.userName).strip()
     bio = request.POST.get('bio', profile.bio)
     password = request.POST.get('password', '')
     avatar = request.FILES.get('avatar')
-
     if not 3 <= len(username) <= 30:
-        return JsonResponse({'detail': '用户名长度必须为 3 到 30 个字符。'}, status=400)
+        return _error('Username must be 3 to 30 characters long.')
     if len(bio) > 300:
-        return JsonResponse({'detail': '简介不能超过 300 个字符。'}, status=400)
-    if password and len(password) < 6:
-        return JsonResponse({'detail': '新密码不能少于 6 个字符。'}, status=400)
+        return _error('Bio must be at most 300 characters.')
+    if password:
+        problem = _validate_new_password(password, request.user)
+        if problem:
+            return _error(problem)
     if avatar and avatar.content_type not in {'image/jpeg', 'image/png', 'image/webp'}:
-        return JsonResponse({'detail': '头像必须是 JPG、PNG 或 WebP 图片。'}, status=400)
+        return _error('Avatar must be JPG, PNG or WebP.')
     if avatar and avatar.size > 5 * 1024 * 1024:
-        return JsonResponse({'detail': '头像不能超过 5 MB。'}, status=400)
-
+        return _error('Avatar must be at most 5 MB.')
     profile.userName = username
     profile.bio = bio
     if password:
-        profile.set_password(password)
+        request.user.set_password(password)
+        request.user.save(update_fields=['password'])
+        profile.password = request.user.password
+        OtpChallenge.objects.filter(user=request.user, consumed=False).update(consumed=True)
+        update_session_auth_hash(request, request.user)
     if avatar:
         profile.avatar = avatar
     profile.save()
-
     response = _profile_response(request, profile)
-    response['message'] = '个人资料已更新。'
+    response['message'] = 'Profile updated.'
     return JsonResponse(response)

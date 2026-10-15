@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from create_template.models import Template, Criterion, Item
 from .views import _validate_scores
 from .models import RatingResult, RatingScore, RatingResultLike, RatingResultComment
@@ -57,7 +58,7 @@ class PublicRatingTests(TestCase):
         self.assertEqual(self.client.get('/api/ratings/public/?page=0').status_code, 400)
 
     def test_likes_are_unique_and_can_be_removed(self):
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         for _ in range(2):
             response = self.client.post(self.url + 'like/')
             self.assertEqual(response.status_code, 200)
@@ -70,13 +71,13 @@ class PublicRatingTests(TestCase):
 
     def test_guest_and_self_likes_are_rejected(self):
         self.assertEqual(self.client.post(self.url + 'like/').status_code, 401)
-        self.client.force_login(self.author_user)
+        verified_force_login(self.client, self.author_user)
         self.assertTrue(self.client.get(self.url).json()['isOwner'])
         self.assertEqual(self.client.post(self.url + 'like/').status_code, 403)
         self.assertEqual(RatingResultLike.objects.count(), 0)
 
     def test_private_results_hide_interactions(self):
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         self.client.post(self.url + 'like/')
         self.public.is_public = False
         self.public.save(update_fields=['is_public'])
@@ -109,16 +110,16 @@ class PublicRatingTests(TestCase):
         self.assertEqual(RatingResult.objects.count(), baseline)
 
     def test_result_comments_are_separate_and_manageable_by_author(self):
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         response = self.client.post(self.url + 'comments/', json.dumps({'content': 'Great ranking'}), content_type='application/json')
         self.assertEqual(response.status_code, 201)
         comment_id = response.json()['id']
         self.assertEqual(self.template.comments.count(), 0)
         self.assertEqual(self.client.get(self.url).json()['commentCount'], 1)
         comment_url = self.url + f'comments/{comment_id}/'
-        self.client.force_login(self.author_user)
+        verified_force_login(self.client, self.author_user)
         self.assertEqual(self.client.delete(comment_url).status_code, 403)
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         response = self.client.patch(comment_url, json.dumps({'content': 'Edited comment'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['isEdited'])
@@ -146,13 +147,13 @@ class PublicRatingTests(TestCase):
 
     def test_comment_validation_and_guest_permissions(self):
         self.assertEqual(self.client.post(self.url + 'comments/', '{}', content_type='application/json').status_code, 401)
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         for content in ('', ' ' * 3, 'x' * 2001):
             self.assertEqual(self.client.post(self.url + 'comments/', json.dumps({'content': content}), content_type='application/json').status_code, 400)
 
     def test_like_and_comment_require_csrf(self):
         client = Client(enforce_csrf_checks=True)
-        client.force_login(self.viewer_user)
+        verified_force_login(client, self.viewer_user)
         self.assertEqual(client.post(self.url + 'like/').status_code, 403)
         self.assertEqual(client.post(self.url + 'comments/', '{}', content_type='application/json').status_code, 403)
         token = client.get('/api/auth/csrf/').json()['csrfToken']
