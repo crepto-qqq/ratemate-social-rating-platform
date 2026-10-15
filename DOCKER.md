@@ -35,10 +35,10 @@ PowerShell 复制文件使用 `Copy-Item .env.example .env`。
 
 ## 真实 Gmail 邮件
 
-以下步骤适用于**运行 Django 后端的电脑或服务器**。用户注册时可以填写自己的任意有效收件邮箱；`user-f16e10456aac@example.invalid` 是发件邮箱，不是每个用户都要拥有的邮箱。每位队友各自运行本地后端时，配置不会自动同步；共用部署只需在共用后端配置一次。
+以下步骤适用于**运行 Django 后端的电脑或服务器**。`user-f16e10456aac@example.invalid` 是统一的发件邮箱；注册用户填写的是自己的收件邮箱，可以是 Gmail 或其他邮箱。每位队友运行各自的本地后端时，都要在自己的电脑上配置一次；以后若使用共用后端，则只需在那台服务器配置一次。
 
-1. 登录发件邮箱对应的 Google 账号，前往 [Google 账号安全设置](https://myaccount.google.com/security)开启两步验证，然后在[应用专用密码页面](https://myaccount.google.com/apppasswords)为 RateMate 生成应用专用密码。如果此功能不可用，先检查账号的两步验证及 Google 给出的账号限制。**日常登录 Gmail 的密码不能填入 `EMAIL_HOST_PASSWORD`。**
-2. 在项目根目录将 `.env.example` 复制为 `.env`（PowerShell：`Copy-Item .env.example .env`；若 `.env` 已存在，直接编辑它，不要覆盖原有数据库密码）。将下面的邮件配置写进根目录 `.env`，把尖括号中的占位文字替换为新生成的应用专用密码；复制时去掉 Google 为便于阅读而显示的空格：
+1. 发件邮箱的管理者登录 `user-f16e10456aac@example.invalid`，在 [Google 账号安全设置](https://myaccount.google.com/security)中开启两步验证，并在[应用专用密码页面](https://myaccount.google.com/apppasswords)为 RateMate 生成应用专用密码。队友使用同一发件邮箱时，需由管理者私下提供应用专用密码；队友**不需要**登录这个 Gmail 账号。若页面不支持生成，检查 Google 账号的两步验证状态和页面给出的限制。`EMAIL_HOST_PASSWORD` **不能填平时登录 Gmail 的密码**。
+2. 在项目根目录（`compose.yaml` 所在目录）创建 `.env`。PowerShell 可运行 `Copy-Item .env.example .env`；如果 `.env` 已存在，直接编辑现有文件，不要覆盖原来的 `RATEMATE_DB_PASSWORD`。把邮件相关的行改成下面这样：
 
 ```dotenv
 EMAIL_HOST=smtp.gmail.com
@@ -46,15 +46,17 @@ EMAIL_PORT=587
 EMAIL_USE_SSL=false
 EMAIL_USE_TLS=true
 EMAIL_HOST_USER=user-f16e10456aac@example.invalid
-EMAIL_HOST_PASSWORD=<Google 应用专用密码，不是 Gmail 登录密码>
+EMAIL_HOST_PASSWORD=your-google-app-password
 DEFAULT_FROM_EMAIL=user-f16e10456aac@example.invalid
 ```
 
-3. 在项目根目录运行 `docker compose up -d --force-recreate backend`，让后端重新读取配置。用另一个收件邮箱注册测试；验证码应送到该邮箱（必要时检查垃圾邮件），而不是 Mailpit。
+3. 将 `your-google-app-password` 替换为真正的 **Google 应用专用密码**。占位文字不能原样使用；如果 Google 展示密码时用空格分组，填入 `.env` 时去掉这些空格。其余几行可以直接照抄，不要在值外额外加引号。
+4. 保存 `.env`，在项目根目录运行 `docker compose up -d --force-recreate backend`，让后端重新读取配置。前端仍访问 http://localhost:5173。
+5. 用**另一个邮箱地址**注册测试。验证码应该到注册时填写的收件箱（必要时检查垃圾邮件），而不是 http://localhost:8025 的 Mailpit。忘记密码和登录验证码也使用同一发件配置。
 
 如果邮件仍进 Mailpit，检查是否编辑了**项目根目录**的 `.env`、`EMAIL_HOST` 是否为 `smtp.gmail.com`，以及后端是否已经重新创建。如果发送失败，可运行 `docker compose logs --tail=100 backend` 查看错误，但不要把包含凭据的日志直接公开。
 
-应用专用密码只保存在运行后端的环境中，不要提交 `.env` 到仓库，也不要把 Gmail 登录密码或应用专用密码发到聊天中。队友若在自己的电脑上使用另一个 Gmail 发件账号，需要把上面的两个邮箱地址改成自己的账号，并生成自己的应用专用密码。尚未取得应用专用密码时，保持 `.env.example` 的 Mailpit 配置，即可在 http://localhost:8025 测试邮件。
+`.env` 已被 Git 忽略，不要把它提交到仓库。队友如果改用自己的 Gmail 发件账号，应将 `EMAIL_HOST_USER`、`DEFAULT_FROM_EMAIL` 和应用专用密码一起改为自己的。尚未取得应用专用密码时，保持 `.env.example` 的 Mailpit 配置，即可在 http://localhost:8025 测试邮件。
 
 ## 常用操作
 
