@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
-import { apiBaseUrl, apiFetch } from '../api.js'
 
 const route = useRoute()
 const router = useRouter()
