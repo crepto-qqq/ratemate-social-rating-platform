@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from create_template.models import Comment, Criterion, Favorite, Item, Template
 from rating.models import RatingResult, RatingResultComment, RatingResultLike, RatingScore
 
@@ -25,13 +26,13 @@ class NotificationTests(TestCase):
         self.item = Item.objects.create(template=self.template, name='Latte', image='test/latte.png')
         self.result = RatingResult.objects.create(owner=self.owner, template=self.template, is_public=True)
         RatingScore.objects.create(result=self.result, criterion=self.criterion, item=self.item, score=5)
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
 
     def _comment(self, url, content):
         return self.client.post(url, json.dumps({'content': content}), content_type='application/json')
 
     def _notifications(self):
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         response = self.client.get('/api/notifications/')
         self.assertEqual(response.status_code, 200)
         return response.json()['notifications']
@@ -47,7 +48,7 @@ class NotificationTests(TestCase):
         self.assertEqual(notice[0]['targetUrl'], f'/templates/{self.template.pk}')
         self.assertEqual(self.client.post(url).status_code, 201)
         self.assertEqual(Notification.objects.count(), 1)  # Self favorite sends nothing.
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self.assertEqual(self.client.delete(url).status_code, 200)
         self.assertEqual(Notification.objects.count(), 0)
         self.client.post(url)
@@ -60,10 +61,10 @@ class NotificationTests(TestCase):
         self.assertEqual(response.status_code, 201)
         comment_url = f"{url}{response.json()['id']}/"
         self.assertEqual(self._notifications()[0]['preview'], 'Nice template')
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self.assertEqual(self.client.patch(comment_url, json.dumps({'content': 'Better text'}), content_type='application/json').status_code, 200)
         self.assertEqual(self._notifications()[0]['preview'], 'Better text')
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self.assertEqual(self.client.delete(comment_url).status_code, 204)
         self.assertEqual(Comment.objects.count(), 0)
         self.assertEqual(Notification.objects.count(), 0)
@@ -77,10 +78,10 @@ class NotificationTests(TestCase):
         self.assertEqual({n['type'] for n in self._notifications()}, {
             Notification.RATING_LIKE, Notification.RATING_COMMENT,
         })
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self.client.patch(base + f'comments/{comment_id}/', json.dumps({'content': 'Updated'}), content_type='application/json')
         self.assertEqual(Notification.objects.get(kind=Notification.RATING_COMMENT).preview, 'Updated')
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         self.assertEqual(self.client.patch(
             f'/api/ratings/{self.result.pk}/', json.dumps({'isPublic': False}),
             content_type='application/json',
@@ -93,10 +94,10 @@ class NotificationTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(Notification.objects.count(), 0)  # No historic backfill.
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self._comment(base + 'comments/', 'New comment')
         self.assertEqual(Notification.objects.count(), 1)
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         self.client.delete(f'/api/ratings/{self.result.pk}/')
         self.assertEqual(Notification.objects.count(), 0)
 
@@ -105,7 +106,7 @@ class NotificationTests(TestCase):
         self.template.is_hidden = True
         self.template.save(update_fields=['is_hidden'])
         self.assertEqual(self._notifications()[0]['targetUrl'], '')
-        self.client.force_login(self.actor_user)
+        verified_force_login(self.client, self.actor_user)
         self.assertEqual(self.client.post(f'/api/templates/{self.template.pk}/favorite/').status_code, 404)
         self.assertEqual(self._comment(f'/api/templates/{self.template.pk}/comments/', 'hidden').status_code, 404)
         self.assertEqual(self.client.get(f'/api/ratings/public/{self.result.pk}/').status_code, 404)
@@ -115,15 +116,15 @@ class NotificationTests(TestCase):
         notify_moderation(self.owner, 'removed', 'rating', self.result.pk, 'Coffee', 'Rule violation')
         self.assertEqual(self.client.get('/api/notifications/').json()['notifications'], [])
         self.assertEqual(self.client.get('/api/notifications/unread-count/').json()['unreadCount'], 0)
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         notice = self.client.get('/api/notifications/').json()['notifications'][0]
         self.assertEqual(notice['reason'], 'Rule violation')
         self.assertEqual(notice['targetUrl'], '')
         self.assertEqual(notice['actorName'], '')
         self.assertNotIn('admin', str(notice))
-        self.client.force_login(self.stranger_user)
+        verified_force_login(self.client, self.stranger_user)
         self.assertEqual(self.client.post(f"/api/notifications/{notice['id']}/read/").status_code, 404)
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         self.assertEqual(self.client.post(f"/api/notifications/{notice['id']}/read/").json()['unreadCount'], 0)
         self.assertTrue(self.client.get('/api/notifications/').json()['notifications'][0]['isRead'])
         notify_moderation(self.owner, 'hidden', 'template', self.template.pk, 'Coffee', 'Second reason')
@@ -136,7 +137,7 @@ class NotificationTests(TestCase):
         for url in ('/api/notifications/', '/api/notifications/unread-count/'):
             self.assertEqual(self.client.get(url).status_code, 401)
         self.assertEqual(self.client.post('/api/notifications/read-all/').status_code, 401)
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         for page in ('0', '-1', 'abc', '9999999'):
             self.assertEqual(self.client.get('/api/notifications/', {'page': page}).status_code, 400)
 
@@ -146,7 +147,7 @@ class NotificationTests(TestCase):
                               f'Notice {index}', 'Resolved').pk
             for index in range(21)
         ]
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         first = self.client.get('/api/notifications/').json()
         second = self.client.get('/api/notifications/', {'page': 2}).json()
         self.assertEqual([notice['id'] for notice in first['notifications']], ids[:0:-1])
@@ -162,7 +163,7 @@ class NotificationTests(TestCase):
                                        f'Read {index}', 'Reason')
             notice.read_at = notice.created_at
             notice.save(update_fields=['read_at'])
-        self.client.force_login(self.owner_user)
+        verified_force_login(self.client, self.owner_user)
         feed = self.client.get('/api/notifications/', {'unread': '1'}).json()
         self.assertEqual([item['id'] for item in feed['notifications']], [older.pk])
         self.assertFalse(feed['hasMore'])
