@@ -268,7 +268,7 @@ onMounted(() => {
   padding: 40px;
   border: 1px solid var(--surface-green-border);
   border-radius: 12px;
-  background: var(--panel-background);
+  background: #fff;
   color: var(--text-secondary);
   text-align: center;
 }
@@ -293,7 +293,7 @@ onMounted(() => {
   padding: 28px;
   border: 1px solid var(--surface-green-border);
   border-radius: 12px;
-  background: var(--panel-background);
+  background: #fff;
 }
 
 .profile-editor-heading {
@@ -374,7 +374,7 @@ onMounted(() => {
 .profile-form-footer > p { margin: 0; color: var(--text-secondary); font-size: 12px; }
 .profile-form-footer > div { display: flex; gap: 10px; }
 
-.hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid var(--surface-green-border); border-radius: 12px; background: var(--panel-background); }
+.hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid var(--surface-green-border); border-radius: 12px; background: #fff; }
 .hidden-content-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .hidden-content-heading h2 { margin: 0; font-size: 20px; }
 .hidden-content-heading p, .hidden-empty { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
