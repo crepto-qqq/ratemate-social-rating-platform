@@ -196,7 +196,7 @@ onMounted(() => {
       <div class="profile-form-grid">
         <label class="editor-field">
           Username
-          <input v-model.trim="profile.username" autocomplete="username" minlength="3" maxlength="30" required @input="changed">
+          <input v-length-feedback v-model.trim="profile.username" autocomplete="username" minlength="3" maxlength="30" required @input="changed">
         </label>
 
         <label class="editor-field">
@@ -206,18 +206,18 @@ onMounted(() => {
 
         <label class="editor-field profile-wide">
           Bio <span class="optional">Optional</span>
-          <textarea v-model="profile.bio" rows="4" maxlength="300" placeholder="What do you enjoy rating?" @input="changed" />
+          <textarea v-length-feedback v-model="profile.bio" rows="4" maxlength="300" placeholder="What do you enjoy rating?" @input="changed" />
           <small>{{ profile.bio.length }} / 300</small>
         </label>
 
         <label class="editor-field">
           New password <span class="optional">Leave blank to keep your current password</span>
-          <input v-model="profile.password" autocomplete="new-password" type="password" minlength="8" placeholder="8+ characters, uppercase, lowercase, number" @input="changed">
+          <input v-length-feedback v-model="profile.password" autocomplete="new-password" type="password" minlength="8" placeholder="8+ characters, uppercase, lowercase, number" @input="changed">
         </label>
 
         <label class="editor-field">
           Confirm new password
-          <input v-model="profile.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter the new password again" @input="changed">
+          <input v-length-feedback v-model="profile.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter the new password again" @input="changed">
         </label>
       </div>
 
@@ -267,7 +267,7 @@ onMounted(() => {
   border: 1px solid #e5ebdf;
   border-radius: 12px;
   background: #fbfcf9;
-  color: #7e8878;
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -304,7 +304,7 @@ onMounted(() => {
 }
 
 .profile-editor-heading h2 { margin: 0; font-size: 20px; }
-.profile-editor-heading p { margin: 8px 0 0; color: #7e8878; font-size: 14px; }
+.profile-editor-heading p { margin: 8px 0 0; color: var(--text-secondary); font-size: 14px; }
 
 .avatar-field {
   display: flex;
@@ -314,7 +314,7 @@ onMounted(() => {
   border-bottom: 1px solid var(--line);
 }
 
-.avatar-field p { margin: 6px 0 12px; color: #8b9584; font-size: 12px; }
+.avatar-field p { margin: 6px 0 12px; color: var(--text-secondary); font-size: 12px; }
 
 .profile-photo-preview {
   display: flex;
@@ -326,7 +326,7 @@ onMounted(() => {
   overflow: hidden;
   border-radius: 50%;
   background: #e5ebdd;
-  color: #5c714f;
+  color: var(--text-secondary);
   font-size: 30px;
   font-weight: 700;
 }
@@ -353,8 +353,8 @@ onMounted(() => {
 }
 
 .profile-wide { grid-column: 1 / -1; }
-.profile-form-grid small { align-self: flex-end; color: #929c8c; font-size: 12px; }
-.readonly-field { background: #f1f3ef !important; color: #727b70 !important; cursor: not-allowed; }
+.profile-form-grid small { align-self: flex-end; color: var(--text-secondary); font-size: 12px; }
+.readonly-field { background: #f1f3ef !important; color: var(--text-secondary) !important; cursor: not-allowed; }
 .profile-error { margin: 22px 0 0; color: #a74842; font-size: 13px; }
 
 .profile-form-footer {
@@ -367,18 +367,18 @@ onMounted(() => {
   border-top: 1px solid var(--line);
 }
 
-.profile-form-footer > p { margin: 0; color: #849079; font-size: 12px; }
+.profile-form-footer > p { margin: 0; color: var(--text-secondary); font-size: 12px; }
 .profile-form-footer > div { display: flex; gap: 10px; }
 
 .hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid #e5ebdf; border-radius: 12px; background: #fbfcf9; }
 .hidden-content-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .hidden-content-heading h2 { margin: 0; font-size: 20px; }
-.hidden-content-heading p, .hidden-empty { color: #7e8878; font-size: 14px; line-height: 1.6; }
+.hidden-content-heading p, .hidden-empty { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
 .hidden-list { display: grid; gap: 14px; margin-top: 22px; }
 .hidden-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; padding: 18px; border: 1px solid #e5ebdf; border-radius: 10px; background: white; }
 .hidden-card h3 { margin: 10px 0 6px; font-size: 17px; overflow-wrap: anywhere; }
-.hidden-card p { margin: 6px 0; color: #677462; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
-.hidden-card strong, .hidden-card small { color: #7b8876; font-size: 12px; }
+.hidden-card p { margin: 6px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.hidden-card strong, .hidden-card small { color: var(--text-secondary); font-size: 12px; }
 
 @media (max-width: 900px) {
   .profile-form-grid { grid-template-columns: 1fr; }

@@ -175,8 +175,8 @@ async function saveTemplate() {
         <h1>Start with the template details</h1>
         <p class="editor-description">Give the template a clear name and briefly explain what it compares.</p>
         <div class="editor-basics">
-          <label class="editor-field">Template name<input v-model="draft.title" maxlength="120" placeholder="e.g. My favorite neighborhood cafés" required></label>
-          <label class="editor-field">Description <span class="optional">Optional</span><textarea v-model="draft.description" maxlength="600" rows="4" placeholder="What is this template for?" /></label>
+          <label class="editor-field">Template name<input v-length-feedback v-model="draft.title" maxlength="120" placeholder="e.g. My favorite neighborhood cafés" required></label>
+          <label class="editor-field">Description <span class="optional">Optional</span><textarea v-length-feedback v-model="draft.description" maxlength="600" rows="4" placeholder="What is this template for?" /></label>
         </div>
       </template>
 
@@ -191,7 +191,7 @@ async function saveTemplate() {
         <div class="editable-list">
           <div v-for="(criterion, index) in draft.criteria" :key="criterion.id" class="criterion-editor">
             <span class="row-number">{{ index + 1 }}</span>
-            <label class="editor-field">Criterion<input v-model="criterion.name" maxlength="100" placeholder="e.g. Flavor"></label>
+            <label class="editor-field">Criterion<input v-length-feedback v-model="criterion.name" maxlength="100" placeholder="e.g. Flavor"></label>
             <label class="editor-field">Weight<input :value="criterion.weight" type="text" inputmode="numeric" pattern="[0-9]+" :aria-invalid="Boolean(weightErrors[criterion.id])" :aria-describedby="weightErrors[criterion.id] ? `weight-error-${criterion.id}` : undefined" @input="updateWeight(criterion, $event)"><small v-if="weightErrors[criterion.id]" :id="`weight-error-${criterion.id}`" class="weight-error" role="alert">{{ weightErrors[criterion.id] }}</small></label>
             <button class="remove-button" type="button" aria-label="Remove criterion" @click="removeCriterion(criterion.id)">×</button>
           </div>
@@ -212,7 +212,7 @@ async function saveTemplate() {
               <span v-else>{{ index + 1 }}</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" @change="selectImage(item, $event)">
             </label>
-            <label class="editor-field item-fields">Item name<input v-model="item.name" maxlength="120" placeholder="e.g. Corner café"></label>
+            <label class="editor-field item-fields">Item name<input v-length-feedback v-model="item.name" maxlength="120" placeholder="e.g. Corner café"></label>
             <button class="remove-button" type="button" aria-label="Remove item" @click="removeItem(item.id)">×</button>
           </div>
         </div>
@@ -233,12 +233,12 @@ async function saveTemplate() {
 
 <style scoped>
 .editor-steps button:disabled { cursor: default; opacity: 1; }
-.item-image-upload { position: relative; display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 70px; height: 70px; overflow: hidden; border-radius: 9px; background: #edf2e7; color: #91a281; cursor: pointer; }
+.item-image-upload { position: relative; display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 70px; height: 70px; overflow: hidden; border-radius: 9px; background: #edf2e7; color: var(--text-secondary); cursor: pointer; }
 .item-image-upload img { width: 100%; height: 100%; object-fit: cover; }
 .item-image-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .template-error { margin: 22px 0 0; color: #a74842; font-size: 13px; }
 .weight-error { color: #a74842; font-size: 12px; font-weight: 400; }
 .template-created { max-width: 680px; margin: 60px auto; padding: 54px; border: 1px solid #e3eadc; border-radius: 14px; background: #f8faf5; text-align: center; }
 .template-created > span { display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; margin: 0 auto 20px; border-radius: 50%; background: #dfead8; color: #325c48; font-size: 26px; }
-.template-created p { margin: 14px 0 28px; color: #75816f; }
+.template-created p { margin: 14px 0 28px; color: var(--text-secondary); }
 </style>

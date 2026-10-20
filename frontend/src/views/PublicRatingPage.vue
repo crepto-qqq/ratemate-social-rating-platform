@@ -1,4 +1,5 @@
 <script setup>
+import { usePageTitle } from '../composables/usePageTitle.js'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
@@ -8,6 +9,8 @@ import TemplateComments from '../components/TemplateComments.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 const route = useRoute()
 const data = ref(null)
+
+usePageTitle(() => data.value?.template.title)
 const loading = ref(true)
 const error = ref('')
 const scores = computed(() => new Map((data.value?.scores || []).map(s => [s.itemId + ':' + s.criterionId, s.score])))
@@ -54,7 +57,7 @@ watch(() => route.params.id, loadRating, { immediate: true })
 <style scoped>
 .public-detail, .rating-main { min-width: 0; }
 .rating-intro { max-width: 900px; margin-bottom: 30px; }
-.rating-intro > p { color: #7a8871; line-height: 1.7; overflow-wrap: anywhere; }
+.rating-intro > p { color: var(--text-secondary); line-height: 1.7; overflow-wrap: anywhere; }
 .detail-actions { margin-top: 20px; align-items: center; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -65,7 +68,7 @@ watch(() => route.params.id, loadRating, { immediate: true })
 .full-ranking img { width: 64px; height: 64px; object-fit: contain; background: #f1f4ec; border-radius: 9px; flex-shrink: 0; }
 .rank-name { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .full-ranking b { margin-left: auto; color: #325c48; font-size: 23px; white-space: nowrap; }
-.full-ranking small { font-size: 10px; color: #8b9780; font-weight: 400; }
+.full-ranking small { font-size: 10px; color: var(--text-secondary); font-weight: 400; }
 #comments { scroll-margin-top: 24px; }
 @media (max-width: 1000px) { .rating-detail-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 620px) { .full-ranking li { gap: 8px; flex-wrap: wrap; } .full-ranking img { width: 44px; height: 44px; } .full-ranking b { font-size: 19px; } .detail-actions { align-items: stretch; } }

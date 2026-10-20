@@ -42,12 +42,12 @@ const section = computed(() => route.meta.section || 'Discover')
 const navItems = computed(() => {
   const items = [
     { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
-    { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
-    { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
+    { to: '/create', icon: 'plus', label: 'Create Template', section: 'Create' },
+    { to: '/rate', icon: 'star', label: 'Rate Template', section: 'Rate' },
     { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages' },
   ]
   if (currentProfile.value?.isAdmin) items.push({ to: '/admin', icon: 'shield', label: 'Admin', section: 'Admin' })
-  items.push({ to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' })
+  items.push({ to: '/profile', icon: 'user', label: 'Personal Space', section: 'Profile' })
   return items
 })
 
@@ -95,7 +95,7 @@ async function signOut() {
         <span class="breadcrumb">Community <span>/</span> <strong>{{ route.meta.title || section }}</strong></span>
         <form class="search" role="search" @submit.prevent="search">
           <AppIcon name="search" />
-          <input v-model="query" aria-label="Search templates" placeholder="Search templates and authors" maxlength="200">
+          <div class="search-field"><input v-length-feedback v-model="query" aria-label="Search templates" placeholder="Search templates and authors" maxlength="200"></div>
           <button type="submit" aria-label="Search"><AppIcon name="search" /></button>
         </form>
         <RouterLink class="avatar top-avatar" to="/profile" aria-label="Open personal space"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></RouterLink>
@@ -106,7 +106,7 @@ async function signOut() {
 </template>
 
 <style scoped>
-.sign-out { border: 0; background: transparent; color: #697265; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
+.sign-out { border: 0; background: transparent; color: #000; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .nav-item { position: relative; }
