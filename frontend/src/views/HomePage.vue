@@ -117,8 +117,8 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
 .feed-order > span { font-size: 12px; color: var(--text-secondary); margin-left: 6px; }
 .recommendation-reason { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; margin: 0 0 12px; }
 .discover-tabs { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
-.discover-tabs button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid transparent; padding: 12px 18px; border-radius: 10px; background: #f5f7f3; color: var(--text-secondary); font-weight: 600; }
-.discover-tabs button.active { background: #e6eee1; border-color: #d9e5d1; color: #325c48; }
+.discover-tabs button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--surface-green-border); padding: 12px 18px; border-radius: 10px; background: var(--panel-background); color: var(--text-green); font-weight: 600; }
+.discover-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
 .discover-tabs svg { width: 18px; height: 18px; }
 .feed-description { color: var(--text-secondary); font-size: 13px; margin: 8px 0 0; }
 .template-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 28px 24px; align-items: start; }

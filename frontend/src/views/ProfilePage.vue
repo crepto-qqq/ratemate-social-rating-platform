@@ -266,9 +266,9 @@ onMounted(() => {
   max-width: 920px;
   min-height: 320px;
   padding: 40px;
-  border: 1px solid #e5ebdf;
+  border: 1px solid var(--surface-green-border);
   border-radius: 12px;
-  background: #fbfcf9;
+  background: var(--panel-background);
   color: var(--text-secondary);
   text-align: center;
 }
@@ -291,9 +291,9 @@ onMounted(() => {
 .profile-editor {
   max-width: 920px;
   padding: 28px;
-  border: 1px solid #e5ebdf;
+  border: 1px solid var(--surface-green-border);
   border-radius: 12px;
-  background: #fbfcf9;
+  background: var(--panel-background);
 }
 
 .profile-editor-heading {
@@ -302,10 +302,10 @@ onMounted(() => {
   justify-content: space-between;
   gap: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--surface-green-border);
 }
 
-.profile-editor-heading h2 { margin: 0; font-size: 20px; }
+.profile-editor-heading h2 { color: var(--text-green); font-weight: 700; margin: 0; font-size: 20px; }
 .profile-editor-heading p { margin: 8px 0 0; color: var(--text-secondary); font-size: 14px; }
 
 .avatar-field {
@@ -313,7 +313,7 @@ onMounted(() => {
   align-items: center;
   gap: 22px;
   padding: 28px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--surface-green-border);
 }
 
 .avatar-field p { margin: 6px 0 12px; color: var(--text-secondary); font-size: 12px; }
@@ -368,18 +368,18 @@ onMounted(() => {
   gap: 20px;
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--surface-green-border);
 }
 
 .profile-form-footer > p { margin: 0; color: var(--text-secondary); font-size: 12px; }
 .profile-form-footer > div { display: flex; gap: 10px; }
 
-.hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid #e5ebdf; border-radius: 12px; background: #fbfcf9; }
+.hidden-content { max-width: 920px; margin: 28px 0 50px; padding: 28px; border: 1px solid var(--surface-green-border); border-radius: 12px; background: var(--panel-background); }
 .hidden-content-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .hidden-content-heading h2 { margin: 0; font-size: 20px; }
 .hidden-content-heading p, .hidden-empty { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
 .hidden-list { display: grid; gap: 14px; margin-top: 22px; }
-.hidden-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; padding: 18px; border: 1px solid #e5ebdf; border-radius: 10px; background: white; }
+.hidden-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; padding: 18px; border: 1px solid var(--surface-green-border); border-radius: 10px; background: white; }
 .hidden-card h3 { margin: 10px 0 6px; font-size: 17px; overflow-wrap: anywhere; }
 .hidden-card p { margin: 6px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .hidden-card strong, .hidden-card small { color: var(--text-secondary); font-size: 12px; }

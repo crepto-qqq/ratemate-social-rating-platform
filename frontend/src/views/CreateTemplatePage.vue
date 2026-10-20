@@ -238,7 +238,7 @@ async function saveTemplate() {
 .item-image-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .template-error { margin: 22px 0 0; color: #a74842; font-size: 13px; }
 .weight-error { color: #a74842; font-size: 12px; font-weight: 400; }
-.template-created { max-width: 680px; margin: 60px auto; padding: 54px; border: 1px solid #e3eadc; border-radius: 14px; background: #f8faf5; text-align: center; }
+.template-created { max-width: 680px; margin: 60px auto; padding: 54px; border: 1px solid #e3eadc; border-radius: 14px; background: var(--panel-background); text-align: center; }
 .template-created > span { display: flex; align-items: center; justify-content: center; width: 54px; height: 54px; margin: 0 auto 20px; border-radius: 50%; background: #dfead8; color: #325c48; font-size: 26px; }
 .template-created p { margin: 14px 0 28px; color: var(--text-secondary); }
 </style>
