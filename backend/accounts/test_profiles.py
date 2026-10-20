@@ -30,14 +30,15 @@ class AccountProfileTests(TestCase):
         credentials = {'username': 'profile_test', 'email': 'profile_test@example.com', 'password': 'StrongPass123'}
         response = self.client.post('/api/auth/register/', json.dumps(credentials),
                                     content_type='application/json', HTTP_X_CSRFTOKEN=self.csrf())
-        self.assertEqual(response.status_code, 201)
-        user = get_user_model().objects.get(username='profile_test')
-        self.assertTrue(User_profile.objects.filter(user=user).exists())
+        self.assertEqual(response.status_code, 202)
+        self.assertFalse(get_user_model().objects.filter(username='profile_test').exists())
         code = re.search(r'\b\d{6}\b', mail.outbox[-1].body).group()
         response = self.client.post('/api/auth/verify/', json.dumps({
             'challengeId': response.json()['challengeId'], 'code': code,
         }), content_type='application/json', HTTP_X_CSRFTOKEN=self.csrf())
         self.assertEqual(response.json()['step'], 'login_required')
+        user = get_user_model().objects.get(username='profile_test')
+        self.assertTrue(User_profile.objects.filter(user=user).exists())
         response = self.client.post('/api/auth/login/', json.dumps(credentials),
                                     content_type='application/json', HTTP_X_CSRFTOKEN=self.csrf())
         self.assertEqual(response.status_code, 200)

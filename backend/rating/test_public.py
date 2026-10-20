@@ -87,7 +87,7 @@ class PublicRatingTests(TestCase):
         self.assertEqual(self.client.get('/api/ratings/public/').json()['results'], [])
 
     def test_rating_creation_rechecks_template_after_validation(self):
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         baseline = RatingResult.objects.count()
         payload = {
             'templateId': self.template.pk,
@@ -127,7 +127,7 @@ class PublicRatingTests(TestCase):
         self.assertEqual(RatingResultComment.objects.count(), 0)
 
     def test_comment_author_can_delete_after_template_is_hidden(self):
-        self.client.force_login(self.viewer_user)
+        verified_force_login(self.client, self.viewer_user)
         response = self.client.post(
             self.url + 'comments/', json.dumps({'content': 'Remove later'}),
             content_type='application/json',

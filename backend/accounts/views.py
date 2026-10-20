@@ -105,6 +105,68 @@ def _send_challenge(request, user, purpose):
     return challenge, None
 
 
+def _pending_registration_step(pending, status=200):
+    local, domain = pending['email'].split('@', 1)
+    return JsonResponse({
+        'step': OtpChallenge.ACTIVATION,
+        'challengeId': pending['challenge_id'],
+        'maskedEmail': f'{local[:1]}***@{domain}',
+        'retryAfter': 60,
+        'detail': 'Check your email for a six-digit code.',
+    }, status=status)
+
+
+def _send_pending_registration(request, username, email, password_hash, *, attempts=0, sent_count=0):
+    code = f'{secrets.randbelow(1000000):06d}'
+    try:
+        send_mail('RateMate email verification',
+                  f'Your RateMate code is {code}. It expires in 5 minutes.',
+                  None, [email], fail_silently=False)
+    except Exception:
+        return _error('Could not send the email. Please try again later.', 503)
+    now = timezone.now().timestamp()
+    pending = {
+        'challenge_id': str(uuid4()),
+        'username': username,
+        'email': email,
+        'password_hash': password_hash,
+        'code_hash': make_password(code),
+        'expires_at': now + 5 * 60,
+        'last_sent_at': now,
+        'attempts': attempts,
+        'sent_count': sent_count + 1,
+    }
+    request.session['pending_registration'] = pending
+    return _pending_registration_step(pending, 202 if sent_count == 0 else 200)
+
+
+def _verify_pending_registration(request, pending, code):
+    if not isinstance(code, str) or not re.fullmatch(r'\d{6}', code):
+        return _error('Invalid or expired code.')
+    if pending['attempts'] >= 5:
+        return _error('Too many incorrect codes. Try again later.', 429)
+    if pending['expires_at'] <= timezone.now().timestamp():
+        return _error('Invalid or expired code.')
+    if not check_password(code, pending['code_hash']):
+        pending['attempts'] += 1
+        request.session['pending_registration'] = pending
+        return _error('Invalid or expired code.')
+    User = get_user_model()
+    if User.objects.filter(username__iexact=pending['username']).exists() or _email_taken(pending['email']):
+        return _error('Username or email is already in use.', 409)
+    try:
+        with transaction.atomic():
+            user = User(username=pending['username'], email=pending['email'],
+                        password=pending['password_hash'], is_active=True)
+            user.save()
+            AccountSecurity.objects.create(user=user, email_verified=True)
+            ensure_profile(user)
+    except IntegrityError:
+        return _error('Username or email is already in use.', 409)
+    request.session.pop('pending_registration', None)
+    return JsonResponse({'step': 'login_required', 'detail': 'Email verified. Sign in to continue.'})
+
+
 def _too_many_attempts(user):
     total = OtpChallenge.objects.filter(
         user=user, last_sent_at__gte=timezone.now() - timedelta(minutes=10),
@@ -148,18 +210,7 @@ def register_view(request):
         return _error('Username is already in use.', 409)
     if _email_taken(email):
         return _error('Email is already in use.', 409)
-    try:
-        with transaction.atomic():
-            user = User.objects.create_user(username=username, email=email, password=password, is_active=False)
-            AccountSecurity.objects.create(user=user)
-            ensure_profile(user)
-            challenge, error = _send_challenge(request, user, OtpChallenge.ACTIVATION)
-            if error:
-                transaction.set_rollback(True)
-                return error
-    except IntegrityError:
-        return _error('Username or email is already in use.', 409)
-    return _step(challenge, 201)
+    return _send_pending_registration(request, username, email, make_password(password))
 
 
 @require_POST
@@ -225,9 +276,12 @@ def _challenge(request):
 
 @require_POST
 def verify_view(request):
-    challenge = _challenge(request)
     data = _body(request)
     code = data.get('code') if data else None
+    pending = request.session.get('pending_registration')
+    if pending and data and data.get('challengeId') == pending['challenge_id']:
+        return _verify_pending_registration(request, pending, code)
+    challenge = _challenge(request)
     if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
             or not isinstance(code, str) or not re.fullmatch(r'\d{6}', code)):
         return _error('Invalid or expired code.')
@@ -262,6 +316,20 @@ def verify_view(request):
 
 @require_POST
 def resend_view(request):
+    data = _body(request)
+    pending = request.session.get('pending_registration')
+    if pending and data and data.get('challengeId') == pending['challenge_id']:
+        now = timezone.now().timestamp()
+        if pending['expires_at'] <= now:
+            return _error('Invalid or expired code.')
+        if pending['last_sent_at'] > now - 60:
+            return _error('Please wait before requesting another code.', 429)
+        if pending['sent_count'] >= 10 or pending['attempts'] >= 5:
+            return _error('Too many codes requested. Try again later.', 429)
+        return _send_pending_registration(
+            request, pending['username'], pending['email'], pending['password_hash'],
+            attempts=pending['attempts'], sent_count=pending['sent_count'],
+        )
     challenge = _challenge(request)
     if (challenge is None or challenge.purpose not in {OtpChallenge.ACTIVATION, OtpChallenge.LOGIN}
             or challenge.expires_at <= timezone.now()):

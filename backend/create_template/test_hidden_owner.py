@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from rating.models import RatingResult
 
 from .models import Template
@@ -22,7 +23,7 @@ class HiddenContentStatusTests(TestCase):
         template = Template.objects.create(owner=template_owner, title='Shared template')
         rating = RatingResult.objects.create(owner=rating_owner, template=template, is_public=True)
 
-        self.client.force_login(admin)
+        verified_force_login(self.client, admin)
         response = self.client.post(
             f'/api/moderation/templates/{template.pk}/hide/',
             data=json.dumps({'reason': 'Contains prohibited material'}),
@@ -30,13 +31,13 @@ class HiddenContentStatusTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-        self.client.force_login(author)
+        verified_force_login(self.client, author)
         data = self.client.get('/api/templates/mine/hidden/').json()
         self.assertEqual(len(data['templates']), 1)
         self.assertEqual(data['templates'][0]['reason'], 'Contains prohibited material')
         self.assertEqual(data['ratings'], [])
 
-        self.client.force_login(rater)
+        verified_force_login(self.client, rater)
         data = self.client.get('/api/templates/mine/hidden/').json()
         self.assertEqual(data['templates'], [])
         self.assertEqual(len(data['ratings']), 1)
@@ -47,17 +48,17 @@ class HiddenContentStatusTests(TestCase):
             content_type='application/json',
         ).status_code, 404)
 
-        self.client.force_login(stranger)
+        verified_force_login(self.client, stranger)
         self.assertEqual(self.client.get('/api/templates/mine/hidden/').json(), {
             'templates': [], 'ratings': [],
         })
 
-        self.client.force_login(admin)
+        verified_force_login(self.client, admin)
         response = self.client.post(
             f'/api/moderation/templates/{template.pk}/restore/',
             data=json.dumps({'reason': 'Reviewed and approved'}),
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 200)
-        self.client.force_login(rater)
+        verified_force_login(self.client, rater)
         self.assertEqual(self.client.get('/api/templates/mine/hidden/').json()['ratings'], [])
