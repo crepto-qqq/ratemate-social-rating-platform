@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
-import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
+import { currentProfile, loadCurrentProfile, profileLoading } from '../currentProfile.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -85,7 +85,7 @@ async function signOut() {
         <button class="sign-out" type="button" @click="signOut">Sign out</button>
         <RouterLink class="profile" to="/profile">
           <span class="avatar"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></span>
-          <div><strong>{{ profileName }}</strong><small>{{ profileError || 'Your personal space' }}</small></div>
+          <div><strong>{{ profileName }}</strong></div>
           <AppIcon name="chevron" />
         </RouterLink>
       </div>
@@ -106,6 +106,7 @@ async function signOut() {
 </template>
 
 <style scoped>
+.profile > div { display: flex; align-items: center; justify-content: center; text-align: center; }
 .sign-out { border: 0; background: transparent; color: #000; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }

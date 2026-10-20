@@ -195,28 +195,30 @@ onMounted(() => {
 
       <div class="profile-form-grid">
         <label class="editor-field">
-          Username
+          <span class="profile-field-label">Username</span>
           <input v-length-feedback v-model.trim="profile.username" autocomplete="username" minlength="3" maxlength="30" required @input="changed">
         </label>
 
         <label class="editor-field">
-          Email address <span class="optional">Cannot be changed</span>
+          <span class="profile-field-label">Email address</span>
           <input v-model="profile.email" class="readonly-field" autocomplete="email" type="email" readonly>
+          <span class="optional">Cannot be changed</span>
         </label>
 
         <label class="editor-field profile-wide">
-          Bio <span class="optional">Optional</span>
+          <span class="profile-field-label">Bio <span class="optional">Optional</span></span>
           <textarea v-length-feedback v-model="profile.bio" rows="4" maxlength="300" placeholder="What do you enjoy rating?" @input="changed" />
           <small>{{ profile.bio.length }} / 300</small>
         </label>
 
         <label class="editor-field">
-          New password <span class="optional">Leave blank to keep your current password</span>
+          <span class="profile-field-label">New password</span>
           <input v-length-feedback v-model="profile.password" autocomplete="new-password" type="password" minlength="8" placeholder="8+ characters, uppercase, lowercase, number" @input="changed">
+          <span class="optional">Leave blank to keep your current password</span>
         </label>
 
         <label class="editor-field">
-          Confirm new password
+          <span class="profile-field-label">Confirm new password</span>
           <input v-length-feedback v-model="profile.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter the new password again" @input="changed">
         </label>
       </div>
@@ -325,8 +327,8 @@ onMounted(() => {
   height: 88px;
   overflow: hidden;
   border-radius: 50%;
-  background: #e5ebdd;
-  color: var(--text-secondary);
+  background: var(--avatar-background);
+  color: var(--avatar-color);
   font-size: 30px;
   font-weight: 700;
 }
@@ -352,6 +354,8 @@ onMounted(() => {
   padding-top: 28px;
 }
 
+.profile-form-grid > .editor-field { align-self: start; }
+.profile-field-label { display: flex; align-items: baseline; gap: 8px; }
 .profile-wide { grid-column: 1 / -1; }
 .profile-form-grid small { align-self: flex-end; color: var(--text-secondary); font-size: 12px; }
 .readonly-field { background: #f1f3ef !important; color: var(--text-secondary) !important; cursor: not-allowed; }
