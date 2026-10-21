@@ -1,4 +1,5 @@
 <script setup>
+import { usePageTitle } from './composables/usePageTitle.js'
 import { apiBaseUrl, apiFetch } from './api.js'
 import { currentProfile } from './currentProfile.js'
 import { reactive, ref } from 'vue'
@@ -6,6 +7,8 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const mode = ref('login')
+
+usePageTitle(() => mode.value === 'register' ? 'Create an account' : mode.value === 'login' ? 'Login' : 'Reset your password')
 const stage = ref('credentials')
 const loading = ref(false)
 const error = ref('')
@@ -144,40 +147,40 @@ async function resend() {
         <template v-if="stage === 'credentials'">
           <template v-if="mode === 'reset'">
             <label for="email">Email address</label>
-            <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
+            <input v-length-feedback id="email" v-model.trim="form.email" autocomplete="email" type="email" maxlength="254" placeholder="you@example.com" required>
           </template>
           <template v-else>
             <label for="username">Username</label>
-            <input id="username" v-model.trim="form.username" autocomplete="username" minlength="3" maxlength="30" placeholder="Enter your username" required>
+            <input v-length-feedback id="username" v-model.trim="form.username" autocomplete="username" minlength="3" maxlength="30" placeholder="Enter your username" required>
             <template v-if="mode === 'register'">
               <label for="email">Email address</label>
-              <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
+              <input v-length-feedback id="email" v-model.trim="form.email" autocomplete="email" type="email" maxlength="254" placeholder="you@example.com" required>
             </template>
             <label for="password">Password</label>
-            <input id="password" v-model="form.password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" :minlength="mode === 'register' ? 8 : undefined" type="password" :placeholder="mode === 'register' ? 'At least 8 characters' : 'Enter your password'" required>
+            <input v-length-feedback id="password" v-model="form.password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" :minlength="mode === 'register' ? 8 : undefined" type="password" :placeholder="mode === 'register' ? 'At least 8 characters' : 'Enter your password'" required>
             <template v-if="mode === 'register'">
               <small class="password-hint">Use at least 8 characters with uppercase and lowercase letters and a number.</small>
               <label for="password-confirm">Confirm password</label>
-              <input id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" minlength="8" type="password" placeholder="Enter your password again" required>
+              <input v-length-feedback id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" minlength="8" type="password" placeholder="Enter your password again" required>
             </template>
           </template>
         </template>
         <template v-else-if="stage === 'enroll'">
           <label for="email">Email address</label>
-          <input id="email" v-model.trim="form.email" autocomplete="email" type="email" placeholder="you@example.com" required>
+          <input v-length-feedback id="email" v-model.trim="form.email" autocomplete="email" type="email" maxlength="254" placeholder="you@example.com" required>
         </template>
         <template v-else-if="stage === 'reset-code'">
           <label for="code">Six-digit code</label>
-          <input id="code" v-model.trim="form.code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          <input v-length-feedback id="code" v-model.trim="form.code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required>
           <label for="password">New password</label>
-          <input id="password" v-model="form.password" autocomplete="new-password" type="password" minlength="8" placeholder="At least 8 characters" required>
+          <input v-length-feedback id="password" v-model="form.password" autocomplete="new-password" type="password" minlength="8" placeholder="At least 8 characters" required>
           <small class="password-hint">Use uppercase and lowercase letters and a number.</small>
           <label for="password-confirm">Confirm new password</label>
-          <input id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter your new password again" required>
+          <input v-length-feedback id="password-confirm" v-model="form.passwordConfirm" autocomplete="new-password" type="password" minlength="8" placeholder="Enter your new password again" required>
         </template>
         <template v-else>
           <label for="code">Six-digit code</label>
-          <input id="code" v-model.trim="form.code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
+          <input v-length-feedback id="code" v-model.trim="form.code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required>
         </template>
         <p v-if="notice" class="message success" role="status">{{ notice }}</p>
         <p v-if="error" class="message error" role="alert">{{ error }}</p>

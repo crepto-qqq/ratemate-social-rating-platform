@@ -30,7 +30,7 @@ async function toggleLike() {
   </div>
 </template>
 <style scoped>
-.like-button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 12px; border: 1px solid #dce5d6; border-radius: 9px; background: #fff; color: #58704c; font-size: 12px; }
+.like-button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 12px; border: 1px solid #dce5d6; border-radius: 9px; background: #fff; color: var(--text-secondary); font-size: 12px; }
 .like-button svg { width: 16px; height: 16px; }
 .like-button.selected { color: #325c48; background: #edf4e8; }
 .like-button.selected svg { fill: currentColor; }
