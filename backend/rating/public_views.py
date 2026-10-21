@@ -3,6 +3,7 @@ from django.db.models import Count, F, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 
 from accounts.profiles import current_profile
@@ -14,7 +15,7 @@ from notifications.services import (
     update_comment_notification,
 )
 from .models import RatingResult, RatingResultLike, RatingResultComment
-from .views import _result_data
+from .views import _ai_result_data, _result_data
 
 
 def public_results():
@@ -40,6 +41,35 @@ def result_data(request, result):
         'commentCount': result.comments.count(),
     })
     return data
+
+
+def ai_result_data(request, template):
+    data = _ai_result_data(request, template)
+    data.update({
+        'author': {
+            'id': template.owner_id,
+            'name': template.owner.userName,
+            'avatarUrl': request.build_absolute_uri(template.owner.avatar.url) if template.owner.avatar else '',
+        },
+        'likeCount': 0,
+        'isLiked': False,
+        'isOwner': request.user.is_authenticated and template.owner.user_id == request.user.pk,
+        'commentCount': 0,
+    })
+    return data
+
+
+def public_ai_templates():
+    return Template.objects.filter(
+        is_hidden=False,
+        ai_takes__isnull=False,
+        ai_takes__isPublic=True,
+    ).select_related('owner').prefetch_related('criteria', 'items')
+
+
+def _ai_created_at(template):
+    value = template.ai_takes.get('generatedAt')
+    return parse_datetime(value) if isinstance(value, str) else None
 
 
 def public_queryset():
@@ -68,19 +98,40 @@ def public_collection_view(request):
         return JsonResponse({'detail': 'Invalid page.'}, status=400)
     start = (int(raw_page) - 1) * 20
     queryset = public_queryset()
+    ai_queryset = public_ai_templates()
     query = request.GET.get('q', '').strip()[:200]
     if query:
         queryset = queryset.filter(Q(template__title__icontains=query) |
                                    Q(template__description__icontains=query) |
                                    Q(owner__userName__icontains=query))
-    results = list(queryset.order_by('-created_at', '-id')[start:start + 21])
-    return JsonResponse({'results': [result_data(request, result) for result in results[:20]],
-                         'hasMore': len(results) > 20})
+        ai_queryset = ai_queryset.filter(Q(title__icontains=query) |
+                                         Q(description__icontains=query) |
+                                         Q(owner__userName__icontains=query))
+    limit = start + 21
+    combined = [
+        *((result.created_at, 'human', result) for result in queryset.order_by('-created_at', '-id')[:limit]),
+        *((_ai_created_at(template) or template.updated_at, 'ai', template) for template in ai_queryset),
+    ]
+    combined.sort(key=lambda entry: (entry[0], entry[2].pk), reverse=True)
+    selected = combined[start:start + 21]
+    data = [
+        ai_result_data(request, value) if kind == 'ai' else result_data(request, value)
+        for _, kind, value in selected[:20]
+    ]
+    return JsonResponse({'results': data, 'hasMore': len(selected) > 20})
 
 
 @require_http_methods(['GET'])
 def public_detail_view(request, result_id):
     return JsonResponse(result_data(request, get_object_or_404(public_queryset(), pk=result_id)))
+
+
+@require_http_methods(['GET'])
+def public_ai_detail_view(request, template_id):
+    return JsonResponse(ai_result_data(
+        request,
+        get_object_or_404(public_ai_templates(), pk=template_id),
+    ))
 
 
 @require_http_methods(['POST', 'DELETE'])

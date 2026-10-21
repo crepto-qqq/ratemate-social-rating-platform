@@ -1,4 +1,5 @@
 <script setup>
+import { usePageTitle } from '../composables/usePageTitle.js'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
@@ -8,6 +9,8 @@ import ListPagination from '../components/ListPagination.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 const route = useRoute()
 const data = ref(null)
+
+usePageTitle(() => data.value?.title)
 const loading = ref(true)
 const error = ref('')
 const saving = ref(false)

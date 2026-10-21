@@ -334,7 +334,7 @@ onMounted(checkAccess)
       <div class="admin-toolbar">
         <form class="admin-search" role="search" @submit.prevent="search">
           <AppIcon name="search" />
-          <input v-model="searchInput" :aria-label="`Search ${section.label.toLowerCase()}`" :placeholder="`Search ${section.label.toLowerCase()}`" maxlength="200">
+          <div class="search-field"><input v-length-feedback v-model="searchInput" :aria-label="`Search ${section.label.toLowerCase()}`" :placeholder="`Search ${section.label.toLowerCase()}`" maxlength="200"></div>
           <button class="action-button primary" type="submit">Search</button>
           <button v-if="searchQuery" class="action-button" type="button" @click="clearSearch">Clear</button>
         </form>
@@ -464,7 +464,7 @@ onMounted(checkAccess)
         <p id="admin-action-description">{{ pendingAction.explanation }}</p>
         <form @submit.prevent="confirmAction">
           <label class="editor-field" for="admin-reason">Reason <span class="optional">Required; recorded with this action and sent to the affected author.</span></label>
-          <textarea id="admin-reason" ref="reasonInput" v-model="reason" rows="4" maxlength="1000" required placeholder="Explain why this content is being handled" />
+          <textarea v-length-feedback id="admin-reason" ref="reasonInput" v-model="reason" rows="4" maxlength="1000" required placeholder="Explain why this content is being handled" />
           <p v-if="actionError" class="admin-action-error" role="alert">{{ actionError }}</p>
           <div class="admin-modal-actions"><button class="action-button" type="button" :disabled="saving" @click="closeAction">Cancel</button><button class="action-button" :class="pendingAction.destructive ? 'admin-danger-solid' : 'primary'" type="submit" :disabled="saving || !reason.trim()">{{ saving ? 'Saving…' : pendingAction.button }}</button></div>
         </form>
@@ -476,17 +476,17 @@ onMounted(checkAccess)
 <style scoped>
 .admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 34px; }
 .admin-heading h1 { margin: 0; }
-.admin-heading p, .admin-section-head p { color: #7e8878; font-size: 14px; line-height: 1.6; }
+.admin-heading p, .admin-section-head p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
 .admin-label, .read-only-label { background: #edf3e7; border-radius: 7px; color: #517041; font-size: 12px; padding: 8px 11px; white-space: nowrap; }
-.read-only-label { background: #f0f2ed; color: #768170; }
-.admin-state, .admin-list-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; padding: 32px; border: 1px solid #e5ebdf; border-radius: 12px; background: #fbfcf9; color: #778171; text-align: center; }
+.read-only-label { background: #f0f2ed; color: var(--text-secondary); }
+.admin-state, .admin-list-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; padding: 32px; border: 1px solid #e5ebdf; border-radius: 12px; background: #fbfcf9; color: var(--text-secondary); text-align: center; }
 .admin-state h2 { color: #273326; margin: 0; }
 .admin-state p { margin: 12px 0 20px; }
 .admin-spinner { width: 34px; height: 34px; border: 3px solid #dce5d6; border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .admin-workspace { min-width: 0; }
 .admin-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
-.admin-tabs button { border: 0; border-radius: 8px; background: transparent; color: #788372; font-size: 14px; padding: 10px 14px; cursor: pointer; }
+.admin-tabs button { border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); font-size: 14px; padding: 10px 14px; cursor: pointer; }
 .admin-tabs button:hover { background: #f2f5ef; }
 .admin-tabs button[aria-current] { background: #e5eee1; color: var(--green); font-weight: 700; }
 .admin-section-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
@@ -495,9 +495,9 @@ onMounted(checkAccess)
 .admin-success { margin-top: 20px; padding: 12px 15px; border: 1px solid #cfe2c5; border-radius: 9px; background: #f0f7eb; color: #315b38; font-size: 14px; }
 .admin-toolbar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px; margin: 24px 0 18px; }
 .admin-search { display: flex; flex: 1; min-width: 220px; max-width: 620px; gap: 8px; align-items: center; }
-.admin-search > svg { width: 18px; height: 18px; color: #899781; flex-shrink: 0; }
+.admin-search > svg { width: 18px; height: 18px; color: var(--text-secondary); flex-shrink: 0; }
 .admin-search input { flex: 1; width: 100%; min-width: 0; min-height: 44px; border: 1px solid #dce4d4; border-radius: 9px; padding: 10px 12px; background: #fff; color: #34492d; font-size: 14px; }
-.admin-filter { display: flex; flex-direction: column; gap: 5px; color: #6d7966; font-size: 12px; }
+.admin-filter { display: flex; flex-direction: column; gap: 5px; color: var(--text-secondary); font-size: 12px; }
 .admin-filter select { min-height: 44px; border: 1px solid #dce4d4; border-radius: 9px; padding: 0 11px; background: white; color: #34492d; font-size: 14px; }
 .admin-list-state { min-height: 190px; }
 .admin-list { display: grid; gap: 12px; }
@@ -505,23 +505,23 @@ onMounted(checkAccess)
 .admin-card-main { min-width: 0; }
 .admin-card-top, .admin-meta, .admin-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 13px; }
 .admin-card-top h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
-.admin-card-main > p { margin: 8px 0; color: #6f7a69; font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
-.admin-card-main > small, .admin-meta { color: #919c8b; font-size: 12px; }
+.admin-card-main > p { margin: 8px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.admin-card-main > small, .admin-meta { color: var(--text-secondary); font-size: 12px; }
 .admin-excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; }
 .admin-comment-content { white-space: pre-wrap; overflow-wrap: anywhere; }
-.admin-id { color: #a0a99b; font-size: 12px; }
+.admin-id { color: var(--text-secondary); font-size: 12px; }
 .admin-pill { border-radius: 6px; background: #edf3e7; color: #517041; font-size: 11px; padding: 5px 8px; white-space: nowrap; }
 .admin-pill.hidden { background: #f4ebe1; color: #986b40; }
 .admin-card-actions { flex-shrink: 0; justify-content: flex-end; }
 .admin-danger { border-color: #e7ccc8; color: #a4463f; }
 .admin-danger:hover { background: #fbefed; }
-.admin-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 27px 0; color: #818c79; font-size: 13px; }
+.admin-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 27px 0; color: var(--text-secondary); font-size: 13px; }
 .admin-modal-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 20px; background: #15211780; }
 .admin-modal { width: min(100%, 520px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 27px; border: 1px solid #dde6d8; border-radius: 15px; background: #fff; box-shadow: 0 18px 55px #14261b33; }
 .admin-modal-header { display: flex; align-items: center; justify-content: space-between; }
-.admin-close { border: 0; background: transparent; color: #778171; font-size: 25px; cursor: pointer; }
+.admin-close { border: 0; background: transparent; color: var(--text-secondary); font-size: 25px; cursor: pointer; }
 .admin-modal h2 { margin: 5px 0 8px; font-size: 22px; }
-.admin-modal p { color: #6e7968; font-size: 14px; line-height: 1.6; }
+.admin-modal p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
 .admin-modal .admin-target { margin: 0; color: #334b39; font-weight: 700; overflow-wrap: anywhere; }
 .admin-modal form { margin-top: 23px; }
 .admin-modal .editor-field { display: block; margin-bottom: 8px; }
@@ -531,10 +531,10 @@ onMounted(checkAccess)
 .admin-danger-solid { border-color: #a4463f; background: #a4463f; color: #fff; }
 .admin-danger-solid:hover { background: #913a34; }
 .admin-inspector { width: min(100%, 760px); }
-.admin-inspection-state { padding: 45px 12px; color: #7e8878; text-align: center; }
+.admin-inspection-state { padding: 45px 12px; color: var(--text-secondary); text-align: center; }
 .admin-inspection-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .admin-inspection-heading h2 { margin: 8px 0 0; }
-.admin-inspection-byline { margin: 8px 0 0; font-size: 12px !important; color: #8a9582 !important; }
+.admin-inspection-byline { margin: 8px 0 0; font-size: 12px !important; color: var(--text-secondary) !important; }
 .admin-inspection-description { white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-inspection-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
 .admin-inspection-stats span { border-radius: 7px; background: #edf3e7; color: #517041; padding: 7px 9px; font-size: 12px; }
@@ -542,7 +542,7 @@ onMounted(checkAccess)
 .admin-criteria, .admin-items, .admin-ranking { list-style: none; padding: 0; margin: 0; }
 .admin-criteria { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-criteria li { display: flex; justify-content: space-between; gap: 10px; border: 1px solid #e5ebdf; border-radius: 8px; background: #fbfcf9; padding: 12px; font-size: 13px; }
-.admin-criteria span { color: #83927a; white-space: nowrap; }
+.admin-criteria span { color: var(--text-secondary); white-space: nowrap; }
 .admin-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-items li { display: flex; align-items: center; gap: 11px; min-width: 0; border: 1px solid #e5ebdf; border-radius: 8px; background: #fbfcf9; padding: 9px; font-size: 13px; overflow-wrap: anywhere; }
 .admin-items img, .admin-ranking img { width: 45px; height: 45px; border-radius: 7px; object-fit: cover; flex-shrink: 0; }

@@ -1,20 +1,25 @@
 import json
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.views.decorators.http import require_http_methods, require_POST
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
 from accounts.profiles import current_profile
 from notifications.models import Notification
 from notifications.services import notify_interaction, remove_interaction_notification
 
+from .ai_takes import AIRatingError, generate_ai_take_scores
 from .models import Criterion, Favorite, Item, Template
 
 
 def _current_owner(request):
-    return current_profile(request)
+    if not hasattr(request, '_ratemate_profile'):
+        request._ratemate_profile = current_profile(request)
+    return request._ratemate_profile
 
 
 def _read_json_field(request, field_name):
@@ -26,12 +31,15 @@ def _read_json_field(request, field_name):
 
 
 def _template_data(request, template, is_favorite=True):
+    viewer = _current_owner(request)
     return {
         'id': template.id,
         'title': template.title,
         'description': template.description,
         'popularity': template.popularity,
         'isFavorite': is_favorite,
+        'isOwner': viewer is not None and viewer.pk == template.owner_id,
+        'hasAiTake': template.ai_takes is not None,
         'author': {
             'id': template.owner_id,
             'name': template.owner.userName,
@@ -185,6 +193,71 @@ def favorite_list_view(request):
     if raw_page is not None:
         data['hasMore'] = len(selected) > 10
     return JsonResponse(data)
+
+
+@require_http_methods(['POST', 'PATCH', 'DELETE'])
+def ai_take_view(request, template_id):
+    owner = _current_owner(request)
+    if owner is None:
+        return JsonResponse({'detail': '未找到当前用户。'}, status=404)
+
+    template = get_object_or_404(
+        Template.objects.select_related('owner').prefetch_related('criteria', 'items'),
+        pk=template_id,
+        owner=owner,
+    )
+    if request.method == 'DELETE':
+        if template.ai_takes is None:
+            return JsonResponse({'detail': '该模板没有 AI 评分。'}, status=404)
+        Template.objects.filter(pk=template.pk, owner=owner).update(
+            ai_takes=None,
+            updated_at=timezone.now(),
+        )
+        return JsonResponse({'message': 'AI 评分已删除。'})
+
+    if template.is_hidden:
+        return JsonResponse({'detail': 'Template not found.'}, status=404)
+
+    if request.method == 'PATCH':
+        if template.ai_takes is None:
+            return JsonResponse({'detail': '该模板没有 AI 评分。'}, status=404)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'detail': '请求内容必须是有效的 JSON 对象。'}, status=400)
+        is_public = data.get('isPublic') if isinstance(data, dict) else None
+        if type(is_public) is not bool:
+            return JsonResponse({'detail': '公开状态必须是布尔值。'}, status=400)
+        ai_take = {**template.ai_takes, 'isPublic': is_public}
+        Template.objects.filter(pk=template.pk, owner=owner).update(
+            ai_takes=ai_take,
+            updated_at=timezone.now(),
+        )
+        return JsonResponse({'aiTake': ai_take})
+
+    if template.ai_takes is not None:
+        return JsonResponse({'detail': '该模板已经有 AI 评分，请先删除后再重新生成。'}, status=409)
+
+    try:
+        scores = generate_ai_take_scores(template)
+    except AIRatingError as error:
+        return JsonResponse({'detail': str(error)}, status=502)
+
+    generated_at = timezone.now()
+    ai_take = {
+        'generatedAt': generated_at.isoformat(),
+        'model': settings.OPENAI_MODEL,
+        'isPublic': False,
+        'scores': scores,
+    }
+    updated = Template.objects.filter(
+        pk=template.pk,
+        owner=owner,
+        ai_takes__isnull=True,
+    ).update(ai_takes=ai_take, updated_at=generated_at)
+    if not updated:
+        return JsonResponse({'detail': '该模板已经有 AI 评分，请先删除后再重新生成。'}, status=409)
+    return JsonResponse({'aiTake': ai_take}, status=201)
 
 
 @require_http_methods(['POST', 'DELETE'])

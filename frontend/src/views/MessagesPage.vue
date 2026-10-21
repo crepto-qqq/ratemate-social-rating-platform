@@ -199,10 +199,10 @@ onMounted(() => loadNotifications())
 .message-icon svg { width: 20px; height: 20px; }
 .message-copy { display: grid; gap: 5px; min-width: 0; }
 .message-title { color: #2d3d2f; font-weight: 650; }
-.message-preview, .message-reason { color: #667060; font-size: 13px; overflow-wrap: anywhere; }
+.message-preview, .message-reason { color: var(--text-secondary); font-size: 13px; overflow-wrap: anywhere; }
 .message-copy small { display: block; margin-top: 3px; }
 .unread-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 11px; border-radius: 50%; background: var(--green); }
-.message-chevron { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 10px; color: #91a188; }
+.message-chevron { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 10px; color: var(--text-secondary); }
 .message-error { color: #a74842; font-size: 13px; }
 .filter-tabs span { margin-left: 3px; }
 @media (max-width: 620px) { .message-copy { gap: 7px; } .message-chevron { display: none; } }

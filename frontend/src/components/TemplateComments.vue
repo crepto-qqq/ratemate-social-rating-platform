@@ -119,7 +119,7 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
     <h2>Comments</h2>
     <form v-if="currentProfile" class="comment-form" @submit.prevent="postComment">
       <label :for="`comment-${resultId || templateId}`">Add a comment</label>
-      <textarea :id="`comment-${resultId || templateId}`" v-model="draft" maxlength="2000" rows="3" :placeholder="resultId ? 'Share your thoughts about this ranking…' : 'Share your thoughts about this template…'" :disabled="busy" required />
+      <textarea v-length-feedback :id="`comment-${resultId || templateId}`" v-model="draft" maxlength="2000" rows="3" :placeholder="resultId ? 'Share your thoughts about this ranking…' : 'Share your thoughts about this template…'" :disabled="busy" required />
       <div class="form-actions"><small>{{ draft.length }}/2000</small><button class="action-button primary" type="submit" :disabled="busy || loading || !validDraft">{{ busy ? 'Saving…' : 'Post comment' }}</button></div>
     </form>
     <p v-else-if="profileLoading" role="status">Checking your account…</p>
@@ -136,7 +136,7 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
         </div>
         <form v-if="editId === comment.id" class="comment-form" @submit.prevent="saveEdit">
           <label :for="`edit-comment-${comment.id}`">Edit comment</label>
-          <textarea :id="`edit-comment-${comment.id}`" v-model="editContent" maxlength="2000" rows="3" :disabled="busy" required />
+          <textarea v-length-feedback :id="`edit-comment-${comment.id}`" v-model="editContent" maxlength="2000" rows="3" :disabled="busy" required />
           <div class="form-actions"><small>{{ editContent.length }}/2000</small><button class="text-button" type="button" :disabled="busy" @click="editId = null">Cancel</button><button class="action-button primary" type="submit" :disabled="busy || loading || !validEdit">Save changes</button></div>
         </form>
         <p v-else class="comment-content">{{ comment.content }}</p>
@@ -157,17 +157,17 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
 textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 12px; border: 1px solid #d8e2cf; border-radius: 9px; background: #fbfcf9; color: #273326; font: inherit; line-height: 1.5; }
 textarea:focus { outline: 2px solid #668258; outline-offset: 2px; }
 .form-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
-.form-actions small { margin-right: auto; color: #778171; }
+.form-actions small { margin-right: auto; color: var(--text-secondary); }
 .comment-list { margin: 22px 0; }
 .comment { display: block; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 0; }
 .comment-heading { display: flex; align-items: center; gap: 10px; }
 .comment-avatar { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; overflow: hidden; border-radius: 50%; background: #e5ebdd; color: #537048; }
 .comment-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .comment-heading strong { overflow-wrap: anywhere; }
-.comment-time { margin-top: 4px; color: #778171; font-size: 12px; }
+.comment-time { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
 .comment-content { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; margin: 14px 0; }
 .comment-actions { display: flex; flex-wrap: wrap; gap: 16px; }
 .delete-button, .comment-error { color: #a74842; }
-.guest-note { color: #778171; }
+.guest-note { color: var(--text-secondary); }
 button:disabled { opacity: .6; cursor: default; }
 </style>

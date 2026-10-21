@@ -72,22 +72,22 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
       <div v-else-if="error" class="empty-results" role="alert"><p>{{ error }}</p><button class="action-button" @click="loadFeed(page)">Try again</button></div>
       <template v-else-if="tab === 'ratings'">
         <div v-if="ratings.length" class="rating-grid">
-          <article v-for="result in ratings" :key="result.id" class="public-rating-card">
+          <article v-for="result in ratings" :key="result.id" class="public-rating-card" :class="{ 'ai-public-rating-card': result.resultType === 'ai' }">
             <RouterLink class="ranking-cover" :to="'/ratings/' + result.id">
               <img v-if="result.ranking[0]?.imageUrl && !failedImages.has('rating-' + result.id)" :src="result.ranking[0].imageUrl" :alt="result.ranking[0].name" @error="imageFailed('rating-' + result.id)">
               <AppIcon v-else name="star" />
-              <span class="ranking-badge">COMMUNITY RANKING</span><span class="winner-badge">#1 · {{ result.ranking[0]?.name }}</span>
+              <span class="ranking-badge">{{ result.resultType === 'ai' ? result.aiModel : 'COMMUNITY RANKING' }}</span><span class="winner-badge">#1 · {{ result.ranking[0]?.name }}</span>
             </RouterLink>
             <div class="rating-card-body">
               <RouterLink class="card-title" :to="'/ratings/' + result.id">{{ result.template.title }}</RouterLink>
               <p v-if="result.recommendationReason && !query && order === 'for-you'" class="recommendation-reason"><AppIcon name="sparkle" />{{ result.recommendationReason }}</p>
               <div class="card-meta"><span class="mini-avatar"><img v-if="result.author.avatarUrl" :src="result.author.avatarUrl" alt=""><template v-else>{{ result.author.name.charAt(0).toUpperCase() || '?' }}</template></span><span>{{ result.author.name }}</span><time :datetime="result.createdAt">{{ formattedDate(result.createdAt) }}</time></div>
               <ol class="ranking-preview"><li v-for="(item, index) in result.ranking.slice(0, 3)" :key="item.itemId"><span class="position" :class="{ first: index === 0 }">{{ index + 1 }}</span><span class="item-name">{{ item.name }}</span><strong>{{ item.score.toFixed(1) }}<small>/100</small></strong></li></ol>
-              <div class="rating-card-footer"><RatingLikeButton :result="result" @change="Object.assign(result, $event)" /><RouterLink class="discussion-link" :to="'/ratings/' + result.id + '#comments'">Comments · {{ result.commentCount }}</RouterLink></div>
+              <div v-if="result.resultType !== 'ai'" class="rating-card-footer"><RatingLikeButton :result="result" @change="Object.assign(result, $event)" /><RouterLink class="discussion-link" :to="'/ratings/' + result.id + '#comments'">Comments · {{ result.commentCount }}</RouterLink></div><div v-else class="ai-feed-note"><AppIcon name="sparkle" />AI-generated rating</div>
             </div>
           </article>
         </div>
-        <div v-else class="empty-results"><h2>{{ query ? 'No matching public ratings' : order === 'for-you' ? 'You’re all caught up.' : 'Be the first to share a ranking.' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest ratings or share a new perspective.' : 'Complete a rating and make it public to share it here.' }}</p><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest ratings</button><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></div>
+        <div v-else class="empty-results"><h2>{{ query ? 'No matching public ratings' : order === 'for-you' ? 'You’re all caught up.' : 'Be the first to share a ranking.' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest ratings or share a new perspective.' : 'Complete a rating and make it public to share it here.' }}</p><div class="empty-actions"><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest ratings</button><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></div></div>
         <ListPagination :page="page" :has-more="hasMore" label="Ratings" @change="setPage" />
       </template>
       <template v-else>
@@ -99,24 +99,27 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
             <div class="card-meta"><span class="mini-avatar"><img v-if="t.author.avatarUrl" :src="t.author.avatarUrl" alt=""><template v-else>{{ t.author.name.charAt(0).toUpperCase() || '?' }}</template></span><span>{{ t.author.name }}</span><span class="likes" title="Favorites"><AppIcon name="bookmark" />{{ t.popularity }}</span></div>
           </article>
         </div>
-        <div v-else class="empty-results"><h2>{{ query ? 'No matching templates' : order === 'for-you' ? 'You’re all caught up.' : 'No templates yet' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest templates, including your own collection.' : 'Create the first template to start exploring.' }}</p><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest templates</button><RouterLink class="action-button" to="/create">Create a template</RouterLink></div>
+        <div v-else class="empty-results"><h2>{{ query ? 'No matching templates' : order === 'for-you' ? 'You’re all caught up.' : 'No templates yet' }}</h2><p>{{ query ? 'Try another search.' : order === 'for-you' ? 'Explore the latest templates, including your own collection.' : 'Create the first template to start exploring.' }}</p><div class="empty-actions"><button v-if="!query && order === 'for-you'" class="action-button" @click="setOrder('latest')">Explore latest templates</button><RouterLink class="action-button" to="/create">Create a template</RouterLink></div></div>
         <ListPagination :page="page" :has-more="hasMore" label="Templates" @change="setPage" />
       </template>
     </section>
   </AppLayout>
 </template>
 <style scoped>
+.empty-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 20px; }
+.empty-actions > .action-button { max-width: 100%; }
+
 .feed-order { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: -8px 0 24px; }
-.feed-order button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e0e8da; border-radius: 20px; padding: 8px 14px; color: #7b8873; background: white; font-size: 12px; }
+.feed-order button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e0e8da; border-radius: 20px; padding: 8px 14px; color: var(--text-secondary); background: white; font-size: 12px; }
 .feed-order button.active { background: #325c48; color: white; border-color: #325c48; }
 .feed-order svg, .recommendation-reason svg { width: 13px; height: 13px; }
-.feed-order > span { font-size: 12px; color: #8b9780; margin-left: 6px; }
-.recommendation-reason { display: flex; align-items: center; gap: 6px; color: #6a825b; font-size: 11px; margin: 0 0 12px; }
+.feed-order > span { font-size: 12px; color: var(--text-secondary); margin-left: 6px; }
+.recommendation-reason { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; margin: 0 0 12px; }
 .discover-tabs { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
-.discover-tabs button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid transparent; padding: 12px 18px; border-radius: 10px; background: #f5f7f3; color: #7b8873; font-weight: 600; }
-.discover-tabs button.active { background: #e6eee1; border-color: #d9e5d1; color: #325c48; }
+.discover-tabs button { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--surface-green-border); padding: 12px 18px; border-radius: 10px; background: var(--panel-background); color: var(--text-green); font-weight: 600; }
+.discover-tabs button.active { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
 .discover-tabs svg { width: 18px; height: 18px; }
-.feed-description { color: #849079; font-size: 13px; margin: 8px 0 0; }
+.feed-description { color: var(--text-secondary); font-size: 13px; margin: 8px 0 0; }
 .template-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 28px 24px; align-items: start; }
 .rating-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 24px; align-items: start; }
 .card { display: block; min-width: 0; margin: 0; }
@@ -128,9 +131,11 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
 .mini-avatar { overflow: hidden; }
 .mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .public-rating-card { min-width: 0; border: 1px solid #e0e8da; border-radius: 14px; overflow: hidden; background: #fbfcf9; }
+.ai-public-rating-card { border: 2px solid #8b73ad; background: #fcfaff; }
+.ai-public-rating-card .ranking-badge { color: #5c477c; background: #f5effd; }
 .ranking-cover { height: 190px; display: flex; align-items: center; justify-content: center; position: relative; background: #eff3e9; }
 .ranking-cover img { width: 100%; height: 100%; object-fit: contain; }
-.ranking-cover > svg { width: 48px; height: 48px; color: #839c6a; }
+.ranking-cover > svg { width: 48px; height: 48px; color: var(--text-secondary); }
 .ranking-badge { position: absolute; top: 14px; left: 14px; font-size: 9px; letter-spacing: 1.2px; font-weight: 700; padding: 7px 9px; border-radius: 6px; background: #fffffff0; color: #426447; }
 .winner-badge { position: absolute; bottom: 12px; left: 14px; right: 14px; width: fit-content; max-width: calc(100% - 28px); overflow-wrap: anywhere; background: #325c48; color: white; padding: 7px 10px; border-radius: 6px; font-size: 12px; }
 .rating-card-body { padding: 18px; }
@@ -138,12 +143,14 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
 .card-meta time { margin-left: auto; flex-shrink: 0; }
 .ranking-preview { list-style: none; padding: 0; margin: 18px 0; }
 .ranking-preview li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e8edde; }
-.position { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: #eef2e8; color: #7d8c70; font-size: 12px; flex-shrink: 0; }
+.position { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: #eef2e8; color: var(--text-secondary); font-size: 12px; flex-shrink: 0; }
 .position.first { background: #ddebcf; color: #325c48; font-weight: 700; }
 .item-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
 .ranking-preview strong { margin-left: auto; color: #325c48; font-size: 17px; white-space: nowrap; }
-.ranking-preview small { font-weight: 400; color: #929c87; font-size: 10px; margin-left: 3px; }
+.ranking-preview small { font-weight: 400; color: var(--text-secondary); font-size: 10px; margin-left: 3px; }
 .rating-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.discussion-link { color: #7a8871; font-size: 12px; }
+.ai-feed-note { display: inline-flex; align-items: center; gap: 6px; color: #5c477c; font-size: 12px; font-weight: 700; }
+.ai-feed-note svg { width: 15px; height: 15px; }
+.discussion-link { color: var(--text-secondary); font-size: 12px; }
 @media (max-width: 620px) { .cover { height: auto; aspect-ratio: 4 / 3; } .ranking-cover { height: 170px; } .rating-card-body { padding: 14px; } .discover-tabs button { flex: 1; padding: 10px; font-size: 12px; } }
 </style>

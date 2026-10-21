@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
-import { currentProfile, loadCurrentProfile, profileLoading, profileError } from '../currentProfile.js'
+import { currentProfile, loadCurrentProfile, profileLoading } from '../currentProfile.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,12 +42,12 @@ const section = computed(() => route.meta.section || 'Discover')
 const navItems = computed(() => {
   const items = [
     { to: '/home_page', icon: 'compass', label: 'Discover', section: 'Discover' },
-    { to: '/create', icon: 'plus', label: 'Create a template', section: 'Create' },
-    { to: '/rate', icon: 'star', label: 'Rate a template', section: 'Rate' },
+    { to: '/create', icon: 'plus', label: 'Create Template', section: 'Create' },
+    { to: '/rate', icon: 'star', label: 'Rate Template', section: 'Rate' },
     { to: '/messages', icon: 'bell', label: 'Messages', section: 'Messages' },
   ]
   if (currentProfile.value?.isAdmin) items.push({ to: '/admin', icon: 'shield', label: 'Admin', section: 'Admin' })
-  items.push({ to: '/profile', icon: 'user', label: 'Personal space', section: 'Profile' })
+  items.push({ to: '/profile', icon: 'user', label: 'Personal Space', section: 'Profile' })
   return items
 })
 
@@ -74,6 +74,7 @@ async function signOut() {
       <RouterLink class="brand" to="/home_page" aria-label="Ratemate home">
         <span class="brand-icon">r<span>·</span></span>ratemate<span class="brand-dot">.</span>
       </RouterLink>
+      <div class="sidebar-navigation">
       <nav aria-label="Main navigation">
         <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" :aria-label="item.section === 'Messages' && unreadCount ? `${item.label}, ${unreadCount} unread` : item.label" :title="item.label" class="nav-item" :class="{ active: section === item.section }">
           <AppIcon :name="item.icon" />
@@ -81,11 +82,12 @@ async function signOut() {
           <b v-if="item.section === 'Messages' && unreadCount" class="nav-unread">{{ unreadCount > 99 ? '99+' : unreadCount }}</b>
         </RouterLink>
       </nav>
-      <div class="sidebar-bottom">
         <button class="sign-out" type="button" @click="signOut">Sign out</button>
+      </div>
+      <div class="sidebar-bottom">
         <RouterLink class="profile" to="/profile">
           <span class="avatar"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></span>
-          <div><strong>{{ profileName }}</strong><small>{{ profileError || 'Your personal space' }}</small></div>
+          <div><strong>{{ profileName }}</strong></div>
           <AppIcon name="chevron" />
         </RouterLink>
       </div>
@@ -95,7 +97,7 @@ async function signOut() {
         <span class="breadcrumb">Community <span>/</span> <strong>{{ route.meta.title || section }}</strong></span>
         <form class="search" role="search" @submit.prevent="search">
           <AppIcon name="search" />
-          <input v-model="query" aria-label="Search templates" placeholder="Search templates and authors" maxlength="200">
+          <div class="search-field"><input v-length-feedback v-model="query" aria-label="Search templates" placeholder="Search templates and authors" maxlength="200"></div>
           <button type="submit" aria-label="Search"><AppIcon name="search" /></button>
         </form>
         <RouterLink class="avatar top-avatar" to="/profile" aria-label="Open personal space"><img v-if="currentProfile?.avatarUrl" :src="currentProfile.avatarUrl" alt="Your avatar"><template v-else>{{ profileInitial }}</template></RouterLink>
@@ -106,7 +108,35 @@ async function signOut() {
 </template>
 
 <style scoped>
-.sign-out { border: 0; background: transparent; color: #697265; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
+/* Keep the logo boundary aligned with the shared top bar. */
+.sidebar { --sidebar-inset: 20px; padding: 0; background: #fff; }
+.sidebar .brand {
+  height: var(--topbar-height);
+  flex-shrink: 0;
+  padding: 0 calc(var(--sidebar-inset) + 12px);
+  background: var(--panel-background);
+}
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 29px var(--sidebar-inset) 0;
+  background: #fff;
+}
+.sidebar-navigation nav { margin-top: 0; }
+.sidebar-navigation .sign-out { margin-top: auto; }
+.sidebar-bottom { margin-inline: var(--sidebar-inset); padding-bottom: 24px; }
+@media (max-width: 1250px) { .sidebar { --sidebar-inset: 13px; } }
+@media (max-width: 900px) { .sidebar { --sidebar-inset: 10px; } }
+@media (max-width: 620px) {
+  .sidebar { --sidebar-inset: 8px; }
+  .sidebar .brand { padding-inline: 0; }
+  .sidebar-navigation { padding-top: 11px; }
+  .sidebar-navigation .sign-out { display: none; }
+}
+
+.profile > div { display: flex; align-items: center; justify-content: center; text-align: center; }
+.sign-out { border: 0; background: transparent; color: #000; cursor: pointer; padding: 12px; text-align: left; width: 100%; }
 .avatar { overflow: hidden; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .nav-item { position: relative; }

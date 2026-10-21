@@ -43,12 +43,12 @@ const router = createRouter({
     {
       path: '/create',
       component: CreateTemplatePage,
-      meta: { title: 'Create a template', section: 'Create' },
+      meta: { title: 'Create Template', section: 'Create' },
     },
     {
       path: '/rate',
       component: RateTemplatePage,
-      meta: { title: 'Rate a template', section: 'Rate' },
+      meta: { title: 'Rate Template', section: 'Rate' },
     },
     {
       path: '/messages',
@@ -63,13 +63,17 @@ const router = createRouter({
     {
       path: '/profile',
       component: ProfilePage,
-      meta: { title: 'Personal space', section: 'Profile' },
+      meta: { title: 'Personal Space', section: 'Profile' },
     },
     {
       path: '/:pathMatch(.*)*',
       redirect: '/home_page',
     },
   ],
+})
+
+router.afterEach((to, from, failure) => {
+  if (!failure) document.title = to.meta.title || 'Ratemate'
 })
 
 export default router
