@@ -12,6 +12,7 @@ urlpatterns = [
     path('favorites/', views.favorite_list_view, name='favorite-list'),
     path('mine/hidden/', owner_views.hidden_content_view, name='hidden-content'),
     path('<int:template_id>/', views.template_detail_view, name='detail'),
+    path('<int:template_id>/ai-takes/', views.ai_take_view, name='ai-take'),
     path('<int:template_id>/favorite/', views.favorite_detail_view, name='favorite-detail'),
     path('<int:template_id>/comments/', comment_views.comment_collection_view, name='comment-list'),
     path('<int:template_id>/comments/<int:comment_id>/', comment_views.comment_detail_view, name='comment-detail'),

@@ -41,13 +41,13 @@ watch(() => route.params.id, loadRating, { immediate: true })
     <RouterLink class="text-button back-button" to="/home_page"><AppIcon name="back" />Back to community ratings</RouterLink>
     <div v-if="loading" class="empty-results" role="status">Loading rating…</div>
     <div v-else-if="error" class="empty-results" role="alert"><h2>{{ error }}</h2><button class="action-button" @click="loadRating">Try again</button></div>
-    <div v-else-if="data" class="public-detail">
-      <header class="rating-intro"><div class="eyebrow">A COMMUNITY PERSPECTIVE</div><h1>{{ data.template.title }}</h1><p>{{ data.template.description }}</p><div class="detail-author"><span class="avatar"><img v-if="data.author.avatarUrl" :src="data.author.avatarUrl" alt=""><template v-else>{{ data.author.name.charAt(0).toUpperCase() }}</template></span><div><strong>{{ data.author.name }}</strong><small>Public rating · {{ new Date(data.createdAt).toLocaleDateString() }}</small></div></div><div class="detail-actions"><RatingLikeButton :result="data" @change="Object.assign(data, $event)" /><RouterLink class="action-button" :to="'/templates/' + data.template.id"><AppIcon name="layers" />View original template</RouterLink></div></header>
+    <div v-else-if="data" class="public-detail" :class="{ 'ai-public-detail': data.resultType === 'ai' }">
+      <header class="rating-intro"><div class="eyebrow">{{ data.resultType === 'ai' ? data.aiModel : 'A COMMUNITY PERSPECTIVE' }}</div><h1>{{ data.template.title }}</h1><p>{{ data.template.description }}</p><div class="detail-author"><span class="avatar"><img v-if="data.author.avatarUrl" :src="data.author.avatarUrl" alt=""><template v-else>{{ data.author.name.charAt(0).toUpperCase() }}</template></span><div><strong>{{ data.author.name }}</strong><small>{{ data.resultType === 'ai' ? 'Public AI rating' : 'Public rating' }} · {{ new Date(data.createdAt).toLocaleDateString() }}</small></div></div><div class="detail-actions"><RatingLikeButton v-if="data.resultType !== 'ai'" :result="data" @change="Object.assign(data, $event)" /><RouterLink class="action-button" :to="'/templates/' + data.template.id"><AppIcon name="layers" />View original template</RouterLink></div></header>
       <div class="rating-detail-layout">
         <div class="rating-main">
           <section class="detail-section"><div class="section-heading"><h2>The final ranking</h2><span>{{ data.ranking.length }} items · score out of 100</span></div><ol class="full-ranking"><li v-for="(item, index) in data.ranking" :key="item.itemId"><span class="position">{{ index + 1 }}</span><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><strong class="rank-name">{{ item.name }}</strong><b>{{ item.score.toFixed(1) }}<small>/100</small></b></li></ol></section>
           <section class="detail-section"><h2>Behind the scores</h2><p class="section-description">Each criterion uses 1–5 stars. The weighted average is scaled to 100.</p><div class="table-scroll"><table><thead><tr><th>Item</th><th v-for="criterion in data.template.criteria" :key="criterion.id">{{ criterion.name }} · weight {{ criterion.weight }}</th></tr></thead><tbody><tr v-for="item in data.template.items" :key="item.id"><th>{{ item.name }}</th><td v-for="criterion in data.template.criteria" :key="criterion.id">{{ scores.get(item.id + ':' + criterion.id) }} ★</td></tr></tbody></table></div></section>
-          <div id="comments"><TemplateComments :key="data.id" :result-id="data.id" /></div>
+          <div v-if="data.resultType !== 'ai'" id="comments"><TemplateComments :key="data.id" :result-id="data.id" /></div>
         </div>
         <aside class="ranking-panel"><h2>A different take?</h2><p>Use the same template to create your own ranking.</p><RouterLink class="action-button primary" :to="'/templates/' + data.template.id">Explore the template</RouterLink></aside>
       </div>
@@ -56,6 +56,7 @@ watch(() => route.params.id, loadRating, { immediate: true })
 </template>
 <style scoped>
 .public-detail, .rating-main { min-width: 0; }
+.ai-public-detail { padding: 24px; border: 2px solid #8b73ad; border-radius: 16px; background: #fcfaff; }
 .rating-intro { max-width: 900px; margin-bottom: 30px; }
 .rating-intro > p { color: var(--text-secondary); line-height: 1.7; overflow-wrap: anywhere; }
 .detail-actions { margin-top: 20px; align-items: center; }

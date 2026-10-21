@@ -73,18 +73,18 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
       <div v-else-if="error && !loadingMore" class="empty-results" role="alert"><p>{{ error }}</p><button class="action-button" @click="loadFeed()">Try again</button></div>
       <template v-else-if="tab === 'ratings'">
         <div v-if="ratings.length" class="rating-grid">
-          <article v-for="result in ratings" :key="result.id" class="public-rating-card">
+          <article v-for="result in ratings" :key="result.id" class="public-rating-card" :class="{ 'ai-public-rating-card': result.resultType === 'ai' }">
             <RouterLink class="ranking-cover" :to="'/ratings/' + result.id">
               <img v-if="result.ranking[0]?.imageUrl && !failedImages.has('rating-' + result.id)" :src="result.ranking[0].imageUrl" :alt="result.ranking[0].name" @error="imageFailed('rating-' + result.id)">
               <AppIcon v-else name="star" />
-              <span class="ranking-badge">COMMUNITY RANKING</span><span class="winner-badge">#1 · {{ result.ranking[0]?.name }}</span>
+              <span class="ranking-badge">{{ result.resultType === 'ai' ? result.aiModel : 'COMMUNITY RANKING' }}</span><span class="winner-badge">#1 · {{ result.ranking[0]?.name }}</span>
             </RouterLink>
             <div class="rating-card-body">
               <RouterLink class="card-title" :to="'/ratings/' + result.id">{{ result.template.title }}</RouterLink>
               <p v-if="result.recommendationReason && !query && order === 'for-you'" class="recommendation-reason"><AppIcon name="sparkle" />{{ result.recommendationReason }}</p>
               <div class="card-meta"><span class="mini-avatar"><img v-if="result.author.avatarUrl" :src="result.author.avatarUrl" alt=""><template v-else>{{ result.author.name.charAt(0).toUpperCase() || '?' }}</template></span><span>{{ result.author.name }}</span><time :datetime="result.createdAt">{{ formattedDate(result.createdAt) }}</time></div>
               <ol class="ranking-preview"><li v-for="(item, index) in result.ranking.slice(0, 3)" :key="item.itemId"><span class="position" :class="{ first: index === 0 }">{{ index + 1 }}</span><span class="item-name">{{ item.name }}</span><strong>{{ item.score.toFixed(1) }}<small>/100</small></strong></li></ol>
-              <div class="rating-card-footer"><RatingLikeButton :result="result" @change="Object.assign(result, $event)" /><RouterLink class="discussion-link" :to="'/ratings/' + result.id + '#comments'">Comments · {{ result.commentCount }}</RouterLink></div>
+              <div v-if="result.resultType !== 'ai'" class="rating-card-footer"><RatingLikeButton :result="result" @change="Object.assign(result, $event)" /><RouterLink class="discussion-link" :to="'/ratings/' + result.id + '#comments'">Comments · {{ result.commentCount }}</RouterLink></div><div v-else class="ai-feed-note"><AppIcon name="sparkle" />AI-generated rating</div>
             </div>
           </article>
         </div>
@@ -132,6 +132,8 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
 .mini-avatar { overflow: hidden; }
 .mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .public-rating-card { min-width: 0; border: 1px solid #e0e8da; border-radius: 14px; overflow: hidden; background: #fbfcf9; }
+.ai-public-rating-card { border: 2px solid #8b73ad; background: #fcfaff; }
+.ai-public-rating-card .ranking-badge { color: #5c477c; background: #f5effd; }
 .ranking-cover { height: 190px; display: flex; align-items: center; justify-content: center; position: relative; background: #eff3e9; }
 .ranking-cover img { width: 100%; height: 100%; object-fit: contain; }
 .ranking-cover > svg { width: 48px; height: 48px; color: var(--text-secondary); }
@@ -148,6 +150,8 @@ function formattedDate(value) { return new Date(value).toLocaleDateString('en', 
 .ranking-preview strong { margin-left: auto; color: #325c48; font-size: 17px; white-space: nowrap; }
 .ranking-preview small { font-weight: 400; color: var(--text-secondary); font-size: 10px; margin-left: 3px; }
 .rating-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ai-feed-note { display: inline-flex; align-items: center; gap: 6px; color: #5c477c; font-size: 12px; font-weight: 700; }
+.ai-feed-note svg { width: 15px; height: 15px; }
 .discussion-link { color: var(--text-secondary); font-size: 12px; }
 .load-more { text-align: center; margin: 28px 0; }
 @media (max-width: 620px) { .cover { height: auto; aspect-ratio: 4 / 3; } .ranking-cover { height: 170px; } .rating-card-body { padding: 14px; } .discover-tabs button { flex: 1; padding: 10px; font-size: 12px; } }

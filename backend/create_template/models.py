@@ -20,6 +20,7 @@ class Template(models.Model):
     title = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     is_hidden = models.BooleanField(default=False, db_index=True)
+    ai_takes = models.JSONField(null=True, blank=True)
     criteria_locked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

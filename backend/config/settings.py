@@ -153,3 +153,8 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'ratemate@localhost')
 EMAIL_TIMEOUT = 10
+
+# OpenAI is called only by the backend; never expose this key through Vite.
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
+OPENAI_TIMEOUT = int(os.environ.get('OPENAI_TIMEOUT', '45'))

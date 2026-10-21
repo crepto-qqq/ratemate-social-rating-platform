@@ -97,6 +97,7 @@ def _result_data(request, result):
 
     return {
         'id': result.id,
+        'resultType': 'human',
         'isPublic': result.is_public,
         'templateHidden': template.is_hidden,
         'createdAt': result.created_at.isoformat(),
@@ -113,6 +114,41 @@ def _result_data(request, result):
     }
 
 
+def _ai_result_data(request, template):
+    ai_take = template.ai_takes
+    scores = ai_take.get('scores', [])
+    score_map = {
+        (entry['itemId'], entry['criterionId']): entry['score']
+        for entry in scores
+    }
+    criteria = list(template.criteria.all())
+    total_weight = sum(criterion.weight for criterion in criteria)
+    ranking = []
+    for item in template.items.all():
+        weighted_score = sum(
+            score_map.get((item.id, criterion.id), 0) * criterion.weight
+            for criterion in criteria
+        )
+        ranking.append({
+            'itemId': item.id,
+            'name': item.name,
+            'imageUrl': request.build_absolute_uri(item.image.url) if item.image else '',
+            'score': weighted_score / total_weight * 20 if total_weight else 0,
+        })
+    ranking.sort(key=lambda entry: entry['score'], reverse=True)
+    return {
+        'id': f'ai-{template.id}',
+        'resultType': 'ai',
+        'aiModel': ai_take.get('model', 'AI'),
+        'isPublic': bool(ai_take.get('isPublic', False)),
+        'templateHidden': template.is_hidden,
+        'createdAt': ai_take['generatedAt'],
+        'template': _template_data(request, template),
+        'scores': scores,
+        'ranking': ranking,
+    }
+
+
 @require_http_methods(['GET', 'POST'])
 def rating_collection_view(request):
     owner = _current_owner(request)
@@ -125,7 +161,16 @@ def rating_collection_view(request):
             'template__items',
             'scores',
         ).order_by('-created_at')
-        return JsonResponse({'results': [_result_data(request, result) for result in results]})
+        ai_templates = Template.objects.filter(
+            owner=owner,
+            ai_takes__isnull=False,
+        ).prefetch_related('criteria', 'items')
+        combined = [
+            *[_result_data(request, result) for result in results],
+            *[_ai_result_data(request, template) for template in ai_templates],
+        ]
+        combined.sort(key=lambda entry: entry['createdAt'], reverse=True)
+        return JsonResponse({'results': combined})
 
     data = _read_json(request)
     if data is None:
