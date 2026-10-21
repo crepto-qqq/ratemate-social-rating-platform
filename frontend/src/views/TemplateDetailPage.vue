@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import AppLayout from '../components/AppLayout.vue'
 import TemplateComments from '../components/TemplateComments.vue'
+import ListPagination from '../components/ListPagination.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 const route = useRoute()
 const data = ref(null)
@@ -12,6 +13,13 @@ const error = ref('')
 const saving = ref(false)
 const saveError = ref('')
 const totalWeight = computed(() => data.value?.criteria.reduce((sum, c) => sum + c.weight, 0) || 1)
+const itemsPage = ref(1)
+const criteriaPage = ref(1)
+const pageSize = 10
+const itemsPageCount = computed(() => Math.ceil((data.value?.items.length || 0) / pageSize))
+const criteriaPageCount = computed(() => Math.ceil((data.value?.criteria.length || 0) / pageSize))
+const visibleItems = computed(() => data.value?.items.slice((itemsPage.value - 1) * pageSize, itemsPage.value * pageSize) || [])
+const visibleCriteria = computed(() => data.value?.criteria.slice((criteriaPage.value - 1) * pageSize, criteriaPage.value * pageSize) || [])
 let loadVersion = 0
 async function scrollToComments() {
   if (route.hash !== '#comments') return
@@ -24,6 +32,8 @@ async function loadTemplate() {
   data.value = null
   error.value = ''
   saveError.value = ''
+  itemsPage.value = 1
+  criteriaPage.value = 1
   try {
     const response = await apiFetch(apiBaseUrl + '/api/templates/' + route.params.id + '/')
     if (!response.ok) throw new Error(response.status === 404 ? 'Template not found.' : 'Unable to load template.')
@@ -71,8 +81,8 @@ watch(() => route.hash, () => { if (data.value) scrollToComments() })
       </div>
       <div class="detail-body">
         <div class="detail-main">
-          <section class="detail-section"><div class="section-heading"><h2>Rating criteria</h2><span>{{ data.criteria.length }} criteria · 1–5 stars each</span></div><div class="criteria-list"><div v-for="c in data.criteria" :key="c.id" class="criterion"><strong>{{ c.name }}</strong><span>Weight {{ c.weight }}</span><div class="weight-track"><div :style="{ width: c.weight / totalWeight * 100 + '%' }" /></div><small>{{ Math.round(c.weight / totalWeight * 100) }}% of total weight</small></div></div></section>
-          <section class="detail-section"><div class="section-heading"><h2>Items to rate</h2><span>{{ data.items.length }} items</span></div><div class="template-items"><article v-for="item in data.items" :key="item.id"><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><strong>{{ item.name }}</strong></article></div></section>
+          <section class="detail-section"><div class="section-heading"><h2>Rating criteria</h2><span>{{ data.criteria.length }} criteria · 1–5 stars each</span></div><div class="criteria-list"><div v-for="c in visibleCriteria" :key="c.id" class="criterion"><strong>{{ c.name }}</strong><span>Weight {{ c.weight }}</span><div class="weight-track"><div :style="{ width: c.weight / totalWeight * 100 + '%' }" /></div><small>{{ Math.round(c.weight / totalWeight * 100) }}% of total weight</small></div></div><ListPagination :page="criteriaPage" :total-pages="criteriaPageCount" label="Criteria" @change="criteriaPage = $event" /></section>
+          <section class="detail-section"><div class="section-heading"><h2>Items to rate</h2><span>{{ data.items.length }} items</span></div><div class="template-items"><article v-for="item in visibleItems" :key="item.id"><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><strong>{{ item.name }}</strong></article></div><ListPagination :page="itemsPage" :total-pages="itemsPageCount" label="Template items" @change="itemsPage = $event" /></section>
           <div id="comments"><TemplateComments :key="data.id" :template-id="data.id" /></div>
         </div>
         <aside class="ranking-panel"><h2>Make your own rating</h2><div class="reuse-note">Save this template to your favorites, then rate its items using the criteria above.</div><RouterLink class="action-button primary" to="/rate">Rate a template</RouterLink></aside>

@@ -57,6 +57,17 @@ class PublicRatingTests(TestCase):
         self.assertFalse(second['hasMore'])
         self.assertEqual(self.client.get('/api/ratings/public/?page=0').status_code, 400)
 
+    def test_personal_rating_history_is_paginated_when_requested(self):
+        for _ in range(10):
+            self.make_result(False)
+        verified_force_login(self.client, self.author_user)
+        first = self.client.get('/api/ratings/?page=1').json()
+        second = self.client.get('/api/ratings/?page=2').json()
+        self.assertEqual(len(first['results']), 10)
+        self.assertTrue(first['hasMore'])
+        self.assertEqual(len(second['results']), 2)
+        self.assertFalse(second['hasMore'])
+
     def test_likes_are_unique_and_can_be_removed(self):
         verified_force_login(self.client, self.viewer_user)
         for _ in range(2):

@@ -2,6 +2,7 @@
 import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
+import ListPagination from '../components/ListPagination.vue'
 import { currentProfile } from '../currentProfile.js'
 
 
@@ -19,6 +20,13 @@ const hiddenTemplates = ref([])
 const hiddenRatings = ref([])
 const hiddenLoading = ref(true)
 const hiddenError = ref('')
+const hiddenPage = ref(1)
+const hiddenEntries = computed(() => [
+  ...hiddenTemplates.value.map((item) => ({ ...item, kind: 'template' })),
+  ...hiddenRatings.value.map((item) => ({ ...item, kind: 'rating' })),
+])
+const hiddenPageCount = computed(() => Math.ceil(hiddenEntries.value.length / 10))
+const visibleHiddenEntries = computed(() => hiddenEntries.value.slice((hiddenPage.value - 1) * 10, hiddenPage.value * 10))
 const avatarInitial = computed(() => profile.username.trim().charAt(0).toUpperCase() || '?')
 
 function applyProfile(data) {
@@ -133,6 +141,7 @@ async function loadHiddenContent() {
     if (!response.ok) throw new Error(data.detail || 'Unable to load content status.')
     hiddenTemplates.value = Array.isArray(data.templates) ? data.templates : []
     hiddenRatings.value = Array.isArray(data.ratings) ? data.ratings : []
+    hiddenPage.value = 1
   } catch (requestError) {
     hiddenError.value = requestError.message || 'Unable to load content status.'
   } finally {
@@ -244,15 +253,12 @@ onMounted(() => {
       <p v-else-if="hiddenError" class="profile-error" role="alert">{{ hiddenError }}</p>
       <p v-else-if="!hiddenTemplates.length && !hiddenRatings.length" class="hidden-empty">No hidden templates or affected ratings.</p>
       <div v-else class="hidden-list">
-        <article v-for="template in hiddenTemplates" :key="`template-${template.id}`" class="hidden-card">
-          <div><span class="state-badge">Template hidden</span><h3>{{ template.title }}</h3><p>{{ template.ratingCount }} saved rating{{ template.ratingCount === 1 ? '' : 's' }}</p></div>
-          <div><strong>Reason</strong><p>{{ template.reason || 'No reason available.' }}</p><small v-if="template.hiddenAt">Hidden {{ statusDate(template.hiddenAt) }}</small></div>
-        </article>
-        <article v-for="rating in hiddenRatings" :key="`rating-${rating.id}`" class="hidden-card">
-          <div><span class="state-badge">Rating unavailable</span><h3>{{ rating.templateTitle }}</h3><p>Your rating remains saved and will reappear if the template is restored.</p></div>
-          <div><strong>Reason</strong><p>{{ rating.reason || 'No reason available.' }}</p><small v-if="rating.hiddenAt">Hidden {{ statusDate(rating.hiddenAt) }}</small></div>
+        <article v-for="entry in visibleHiddenEntries" :key="`${entry.kind}-${entry.id}`" class="hidden-card">
+          <div><span class="state-badge">{{ entry.kind === 'template' ? 'Template hidden' : 'Rating unavailable' }}</span><h3>{{ entry.kind === 'template' ? entry.title : entry.templateTitle }}</h3><p>{{ entry.kind === 'template' ? `${entry.ratingCount} saved rating${entry.ratingCount === 1 ? '' : 's'}` : 'Your rating remains saved and will reappear if the template is restored.' }}</p></div>
+          <div><strong>Reason</strong><p>{{ entry.reason || 'No reason available.' }}</p><small v-if="entry.hiddenAt">Hidden {{ statusDate(entry.hiddenAt) }}</small></div>
         </article>
       </div>
+      <ListPagination v-if="!hiddenLoading && !hiddenError" :page="hiddenPage" :total-pages="hiddenPageCount" label="Hidden content" @change="hiddenPage = $event" />
     </section>
   </AppLayout>
 </template>

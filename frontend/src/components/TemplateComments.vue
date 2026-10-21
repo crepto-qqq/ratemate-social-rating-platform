@@ -2,12 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 import { currentProfile, profileLoading } from '../currentProfile.js'
+import ListPagination from './ListPagination.vue'
 
 const props = defineProps({ templateId: Number, resultId: Number })
 const comments = ref([])
 const loading = ref(false)
 const loadError = ref('')
-const retryReset = ref(true)
+const retryPage = ref(1)
 const actionError = ref('')
 const draft = ref('')
 const editId = ref(null)
@@ -15,7 +16,7 @@ const deleteId = ref(null)
 const editContent = ref('')
 const busy = ref(false)
 const hasMore = ref(false)
-const page = ref(0)
+const page = ref(1)
 const validDraft = computed(() => draft.value.trim().length > 0 && draft.value.trim().length <= 2000)
 const validEdit = computed(() => editContent.value.trim().length > 0 && editContent.value.trim().length <= 2000)
 const endpoint = props.resultId
@@ -30,16 +31,19 @@ async function readResponse(response) {
   return data
 }
 
-async function loadComments(reset = false) {
+async function loadComments(nextPage = 1) {
   const version = ++requestVersion
-  const nextPage = reset ? 1 : page.value + 1
   loading.value = true
   loadError.value = ''
-  retryReset.value = reset
+  retryPage.value = nextPage
   try {
     const data = await readResponse(await apiFetch(`${endpoint}?page=${nextPage}`))
     if (!active || version !== requestVersion) return
-    comments.value = reset ? data.comments : [...comments.value, ...data.comments.filter(c => !comments.value.some(existing => existing.id === c.id))]
+    if (nextPage > 1 && !data.comments.length) {
+      await loadComments(nextPage - 1)
+      return
+    }
+    comments.value = data.comments
     page.value = nextPage
     hasMore.value = data.hasMore
   } catch (error) {
@@ -60,7 +64,7 @@ async function postComment() {
     }))
     if (!active) return
     draft.value = ''
-    await loadComments(true)
+    await loadComments(1)
   } catch (error) { if (active) actionError.value = error.message }
   finally { if (active) busy.value = false }
 }
@@ -100,13 +104,13 @@ async function deleteComment(comment) {
     comments.value = comments.value.filter(c => c.id !== comment.id)
     deleteId.value = null
     if (editId.value === comment.id) editId.value = null
-    await loadComments(true)
+    await loadComments(page.value)
   } catch (error) { if (active) actionError.value = error.message }
   finally { if (active) busy.value = false }
 }
 
 function formattedTime(value) { return new Date(value).toLocaleString() }
-onMounted(() => loadComments(true))
+onMounted(() => loadComments(1))
 onBeforeUnmount(() => { active = false; requestVersion++ })
 </script>
 
@@ -122,7 +126,7 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
     <p v-else class="guest-note"><RouterLink to="/login">Log in</RouterLink> to join the conversation.</p>
     <p v-if="actionError" class="comment-error" role="alert">{{ actionError }}</p>
     <p v-if="loading" role="status">Loading comments…</p>
-    <div v-if="loadError" class="comment-error" role="alert"><p>{{ loadError }}</p><button class="text-button" :disabled="loading || busy" @click="loadComments(retryReset)">Try again</button></div>
+    <div v-if="loadError" class="comment-error" role="alert"><p>{{ loadError }}</p><button class="text-button" :disabled="loading || busy" @click="loadComments(retryPage)">Try again</button></div>
     <p v-if="!loading && !loadError && !comments.length" class="inline-empty">No comments yet. Start the conversation.</p>
     <div class="comment-list">
       <article v-for="comment in comments" :key="comment.id" class="comment">
@@ -142,7 +146,7 @@ onBeforeUnmount(() => { active = false; requestVersion++ })
         </div>
       </article>
     </div>
-    <button v-if="hasMore && !loadError" class="action-button" :disabled="loading || busy" @click="loadComments()">{{ loading ? 'Loading…' : 'Load more comments' }}</button>
+    <ListPagination v-if="!loading && !loadError && !busy" :page="page" :has-more="hasMore" label="Comments" @change="loadComments" />
   </section>
 </template>
 

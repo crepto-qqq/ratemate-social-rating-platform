@@ -124,8 +124,18 @@ def rating_collection_view(request):
             'template__criteria',
             'template__items',
             'scores',
-        ).order_by('-created_at')
-        return JsonResponse({'results': [_result_data(request, result) for result in results]})
+        ).order_by('-created_at', '-id')
+        raw_page = request.GET.get('page')
+        if raw_page is not None:
+            if not raw_page.isascii() or not raw_page.isdigit() or len(raw_page) > 6 or int(raw_page) < 1:
+                return JsonResponse({'detail': 'Invalid page.'}, status=400)
+            start = (int(raw_page) - 1) * 10
+            selected = list(results[start:start + 11])
+            results = selected[:10]
+        data = {'results': [_result_data(request, result) for result in results]}
+        if raw_page is not None:
+            data['hasMore'] = len(selected) > 10
+        return JsonResponse(data)
 
     data = _read_json(request)
     if data is None:
