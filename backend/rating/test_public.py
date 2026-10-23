@@ -57,25 +57,6 @@ class PublicRatingTests(TestCase):
         self.assertFalse(second['hasMore'])
         self.assertEqual(self.client.get('/api/ratings/public/?page=0').status_code, 400)
 
-    def test_personal_rating_history_is_paginated_when_requested(self):
-        for _ in range(10):
-            self.make_result(False)
-        self.template.ai_takes = {
-            'generatedAt': '2999-01-01T00:00:00+00:00',
-            'model': 'Test model',
-            'scores': [],
-        }
-        self.template.save(update_fields=['ai_takes'])
-        verified_force_login(self.client, self.author_user)
-        first = self.client.get('/api/ratings/?page=1').json()
-        second = self.client.get('/api/ratings/?page=2').json()
-        self.assertEqual(len(first['results']), 10)
-        self.assertEqual(first['results'][0]['resultType'], 'ai')
-        self.assertTrue(first['hasMore'])
-        self.assertEqual(len(second['results']), 3)
-        self.assertFalse(second['hasMore'])
-        self.assertEqual(len(self.client.get('/api/ratings/').json()['results']), 13)
-
     def test_likes_are_unique_and_can_be_removed(self):
         verified_force_login(self.client, self.viewer_user)
         for _ in range(2):

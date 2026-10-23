@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 import AppIcon from '../components/AppIcon.vue'
-import ListPagination from '../components/ListPagination.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 
 const sections = [
@@ -34,19 +33,6 @@ const saving = ref(false)
 const reasonInput = ref(null)
 const inspectorClose = ref(null)
 const inspection = ref(null)
-const inspectionItemsPage = ref(1)
-const inspectionCriteriaPage = ref(1)
-const inspectionRankingPage = ref(1)
-const inspectionItemsPageCount = computed(() => Math.ceil((inspection.value?.data?.items?.length || 0) / 10))
-const inspectionCriteriaPageCount = computed(() => Math.ceil((inspection.value?.data?.criteria?.length || 0) / 10))
-const inspectionRankingPageCount = computed(() => Math.ceil((inspection.value?.data?.ranking?.length || 0) / 10))
-const inspectionItems = computed(() => inspection.value?.data?.items?.slice((inspectionItemsPage.value - 1) * 10, inspectionItemsPage.value * 10) || [])
-const inspectionCriteria = computed(() => inspection.value?.data?.criteria?.slice((inspectionCriteriaPage.value - 1) * 10, inspectionCriteriaPage.value * 10) || [])
-const inspectionRanking = computed(() => inspection.value?.data?.ranking?.slice((inspectionRankingPage.value - 1) * 10, inspectionRankingPage.value * 10) || [])
-const inspectionScoreItems = computed(() => {
-  const items = new Map((inspection.value?.data?.template?.items || []).map((item) => [item.id, item]))
-  return inspectionRanking.value.map((rank) => items.get(rank.itemId)).filter(Boolean)
-})
 const scoreLookup = computed(() => new Map(((inspection.value?.kind === 'rating' ? inspection.value?.data?.scores : []) || [])
   .map((score) => [`${score.itemId}:${score.criterionId}`, score.score])))
 let loadVersion = 0
@@ -209,9 +195,6 @@ function closeAction() {
 
 async function openInspection(kind, id) {
   const current = ++inspectionVersion
-  inspectionItemsPage.value = 1
-  inspectionCriteriaPage.value = 1
-  inspectionRankingPage.value = 1
   inspection.value = { kind, id, loading: true, error: '', data: null }
   nextTick(() => inspectorClose.value?.focus())
   try {
@@ -437,20 +420,17 @@ onMounted(checkAccess)
           <template v-if="inspection.kind === 'template'">
             <div class="admin-inspection-stats"><span>{{ inspection.data.ratingCount }} ratings</span><span>{{ inspection.data.commentCount }} comments</span><span>{{ inspection.data.favoriteCount }} saves</span></div>
             <h3>Criteria</h3>
-            <ul class="admin-criteria"><li v-for="criterion in inspectionCriteria" :key="criterion.id"><strong>{{ criterion.name }}</strong><span>Weight {{ criterion.weight }}</span></li></ul>
-            <ListPagination :page="inspectionCriteriaPage" :total-pages="inspectionCriteriaPageCount" label="Inspection criteria" @change="inspectionCriteriaPage = $event" />
+            <ul class="admin-criteria"><li v-for="criterion in inspection.data.criteria" :key="criterion.id"><strong>{{ criterion.name }}</strong><span>Weight {{ criterion.weight }}</span></li></ul>
             <h3>Items</h3>
-            <ul class="admin-items"><li v-for="item in inspectionItems" :key="item.id"><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><span>{{ item.name }}</span></li></ul>
-            <ListPagination :page="inspectionItemsPage" :total-pages="inspectionItemsPageCount" label="Inspection items" @change="inspectionItemsPage = $event" />
+            <ul class="admin-items"><li v-for="item in inspection.data.items" :key="item.id"><img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.name"><span>{{ item.name }}</span></li></ul>
           </template>
 
           <template v-else>
             <div class="admin-inspection-stats"><span>{{ inspection.data.likeCount }} likes</span><span>{{ inspection.data.commentCount }} comments</span></div>
             <h3>Final ranking</h3>
-            <ol class="admin-ranking"><li v-for="(rank, index) in inspectionRanking" :key="rank.itemId"><span class="admin-rank">{{ (inspectionRankingPage - 1) * 10 + index + 1 }}</span><img v-if="rank.imageUrl" :src="rank.imageUrl" :alt="rank.name"><strong>{{ rank.name }}</strong><b>{{ Number(rank.score).toFixed(1) }}/100</b></li></ol>
-            <ListPagination :page="inspectionRankingPage" :total-pages="inspectionRankingPageCount" label="Inspection ranking" @change="inspectionRankingPage = $event" />
+            <ol class="admin-ranking"><li v-for="(rank, index) in inspection.data.ranking" :key="rank.itemId"><span class="admin-rank">{{ index + 1 }}</span><img v-if="rank.imageUrl" :src="rank.imageUrl" :alt="rank.name"><strong>{{ rank.name }}</strong><b>{{ Number(rank.score).toFixed(1) }}/100</b></li></ol>
             <h3>Scores by criterion</h3>
-            <div class="admin-score-scroll"><table><thead><tr><th>Item</th><th v-for="criterion in inspection.data.template.criteria" :key="criterion.id">{{ criterion.name }}</th></tr></thead><tbody><tr v-for="item in inspectionScoreItems" :key="item.id"><th>{{ item.name }}</th><td v-for="criterion in inspection.data.template.criteria" :key="criterion.id">{{ scoreLookup.get(`${item.id}:${criterion.id}`) ?? '—' }}</td></tr></tbody></table></div>
+            <div class="admin-score-scroll"><table><thead><tr><th>Item</th><th v-for="criterion in inspection.data.template.criteria" :key="criterion.id">{{ criterion.name }}</th></tr></thead><tbody><tr v-for="item in inspection.data.template.items" :key="item.id"><th>{{ item.name }}</th><td v-for="criterion in inspection.data.template.criteria" :key="criterion.id">{{ scoreLookup.get(`${item.id}:${criterion.id}`) ?? '—' }}</td></tr></tbody></table></div>
           </template>
         </template>
       </section>

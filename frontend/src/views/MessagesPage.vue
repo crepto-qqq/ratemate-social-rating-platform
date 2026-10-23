@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppIcon from '../components/AppIcon.vue'
 import AppLayout from '../components/AppLayout.vue'
-import ListPagination from '../components/ListPagination.vue'
 import { apiBaseUrl, apiFetch } from '../api.js'
 
 const router = useRouter()
@@ -16,6 +15,7 @@ const markingAll = ref(false)
 const unreadCount = ref(0)
 const page = ref(1)
 const hasMore = ref(false)
+const loadingMore = ref(false)
 let requestId = 0
 
 function setFilter(value) {
@@ -24,17 +24,19 @@ function setFilter(value) {
   loadNotifications()
 }
 
-async function loadNotifications(nextPage = 1) {
+async function loadNotifications({ more = false } = {}) {
   const currentRequest = ++requestId
-  loading.value = true
+  if (more) loadingMore.value = true
+  else loading.value = true
   try {
+    const nextPage = more ? page.value + 1 : 1
     const unread = filter.value === 'unread' ? '&unread=1' : ''
     const response = await apiFetch(`${apiBaseUrl}/api/notifications/?page=${nextPage}${unread}`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load notifications.')
     if (currentRequest !== requestId) return
     const incoming = Array.isArray(data.notifications) ? data.notifications : []
-    notifications.value = incoming
+    notifications.value = more ? [...notifications.value, ...incoming] : incoming
     page.value = nextPage
     hasMore.value = Boolean(data.hasMore)
     unreadCount.value = Number(data.unreadCount) || 0
@@ -42,18 +44,14 @@ async function loadNotifications(nextPage = 1) {
     window.dispatchEvent(new Event('notifications:updated'))
   } catch (requestError) {
     if (currentRequest !== requestId) return
-    error.value = requestError.message || 'Unable to load notifications.'
+    if (more) actionError.value = requestError.message || 'Unable to load more messages.'
+    else error.value = requestError.message || 'Unable to load notifications.'
   } finally {
     if (currentRequest === requestId) {
       loading.value = false
+      loadingMore.value = false
     }
   }
-}
-
-function setPage(nextPage) {
-  if (nextPage < 1 || (nextPage > page.value && !hasMore.value)) return
-  loadNotifications(nextPage)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function formatDate(value) {
@@ -186,7 +184,11 @@ onMounted(() => loadNotifications())
         <AppIcon v-if="notification.targetUrl" name="chevron" class="message-chevron" />
       </button>
     </section>
-    <ListPagination v-if="!loading && !error" :page="page" :has-more="hasMore" label="Messages" @change="setPage" />
+    <div v-if="!loading && !error && hasMore" class="message-more">
+      <button class="action-button" type="button" :disabled="loadingMore" @click="loadNotifications({ more: true })">
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
+    </div>
   </AppLayout>
 </template>
 
@@ -204,6 +206,7 @@ onMounted(() => loadNotifications())
 .unread-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 11px; border-radius: 50%; background: var(--green); }
 .message-chevron { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 10px; color: var(--text-secondary); }
 .message-error { color: #a74842; font-size: 13px; }
+.message-more { max-width: 1000px; padding: 22px 0 38px; text-align: center; }
 .filter-tabs span { margin-left: 3px; }
 @media (max-width: 620px) { .message-copy { gap: 7px; } .message-chevron { display: none; } }
 </style>
