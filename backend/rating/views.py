@@ -160,7 +160,7 @@ def rating_collection_view(request):
             'template__criteria',
             'template__items',
             'scores',
-        ).order_by('-created_at', '-id')
+        ).order_by('-created_at')
         ai_templates = Template.objects.filter(
             owner=owner,
             ai_takes__isnull=False,
@@ -170,12 +170,6 @@ def rating_collection_view(request):
             *[_ai_result_data(request, template) for template in ai_templates],
         ]
         combined.sort(key=lambda entry: entry['createdAt'], reverse=True)
-        raw_page = request.GET.get('page')
-        if raw_page is not None:
-            if not raw_page.isascii() or not raw_page.isdigit() or len(raw_page) > 6 or int(raw_page) < 1:
-                return JsonResponse({'detail': 'Invalid page.'}, status=400)
-            start = (int(raw_page) - 1) * 10
-            return JsonResponse({'results': combined[start:start + 10], 'hasMore': len(combined) > start + 10})
         return JsonResponse({'results': combined})
 
     data = _read_json(request)
