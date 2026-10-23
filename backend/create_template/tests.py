@@ -48,6 +48,31 @@ class DiscoverTests(TestCase):
     def test_missing_template_returns_404(self):
         self.assertEqual(self.client.get('/api/templates/999999/').status_code, 404)
 
+    def test_paginated_template_search_replaces_full_listing(self):
+        for index in range(12):
+            Template.objects.create(owner=self.author, title=f'Coffee {index:02d}', description='Cafes')
+        Template.objects.create(owner=self.author, title='Tea', description='Other')
+        first = self.client.get('/api/templates/?page=1&q=Coffee').json()
+        second = self.client.get('/api/templates/?page=2&q=Coffee').json()
+        self.assertEqual(len(first['templates']), 10)
+        self.assertTrue(first['hasMore'])
+        self.assertEqual(len(second['templates']), 2)
+        self.assertFalse(second['hasMore'])
+        self.assertFalse(set(item['id'] for item in first['templates']) & set(item['id'] for item in second['templates']))
+        self.assertEqual(self.client.get('/api/templates/?page=0').status_code, 400)
+
+    def test_paginated_favorites(self):
+        verified_force_login(self.client, self.user)
+        for index in range(12):
+            template = Template.objects.create(owner=self.author, title=f'Favorite {index}')
+            Favorite.objects.create(user=self.author, template=template)
+        first = self.client.get('/api/templates/favorites/?page=1').json()
+        second = self.client.get('/api/templates/favorites/?page=2').json()
+        self.assertEqual(len(first['templates']), 10)
+        self.assertTrue(first['hasMore'])
+        self.assertEqual(len(second['templates']), 2)
+        self.assertFalse(second['hasMore'])
+
     def test_profile_hides_internal_email_placeholder(self):
         verified_force_login(self.client, self.user)
         profile = self.client.get('/api/auth/profile/').json()

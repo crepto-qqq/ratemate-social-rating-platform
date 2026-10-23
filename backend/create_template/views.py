@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -63,14 +64,29 @@ def _template_data(request, template, is_favorite=True):
 def create_template_view(request):
     if request.method == 'GET':
         viewer = _current_owner(request)
-        favorite_ids = set(Favorite.objects.filter(user=viewer).values_list('template_id', flat=True)) if viewer else set()
         templates = Template.objects.filter(is_hidden=False).select_related('owner').prefetch_related(
             'criteria', 'items', 'favorite_records',
         ).order_by('-created_at', '-id')
-        return JsonResponse({'templates': [
+        raw_page = request.GET.get('page')
+        if raw_page is not None:
+            if not raw_page.isascii() or not raw_page.isdigit() or len(raw_page) > 6 or int(raw_page) < 1:
+                return JsonResponse({'detail': 'Invalid page.'}, status=400)
+            query = request.GET.get('q', '').strip()[:200]
+            if query:
+                templates = templates.filter(Q(title__icontains=query) |
+                                             Q(description__icontains=query) |
+                                             Q(owner__userName__icontains=query))
+            start = (int(raw_page) - 1) * 10
+            selected = list(templates[start:start + 11])
+            templates = selected[:10]
+        favorite_ids = set(Favorite.objects.filter(user=viewer).values_list('template_id', flat=True)) if viewer else set()
+        data = {'templates': [
             _template_data(request, template, template.id in favorite_ids)
             for template in templates
-        ]})
+        ]}
+        if raw_page is not None:
+            data['hasMore'] = len(selected) > 10
+        return JsonResponse(data)
     owner = _current_owner(request)
     if owner is None:
         return JsonResponse({'detail': '未找到当前用户。'}, status=404)
@@ -160,13 +176,23 @@ def favorite_list_view(request):
     favorites = Favorite.objects.filter(user=owner, template__is_hidden=False).select_related('template').prefetch_related(
         'template__criteria',
         'template__items',
-    ).order_by('-created_at')
-    return JsonResponse({
+    ).order_by('-created_at', '-id')
+    raw_page = request.GET.get('page')
+    if raw_page is not None:
+        if not raw_page.isascii() or not raw_page.isdigit() or len(raw_page) > 6 or int(raw_page) < 1:
+            return JsonResponse({'detail': 'Invalid page.'}, status=400)
+        start = (int(raw_page) - 1) * 10
+        selected = list(favorites[start:start + 11])
+        favorites = selected[:10]
+    data = {
         'templates': [
             _template_data(request, favorite.template)
             for favorite in favorites
         ],
-    })
+    }
+    if raw_page is not None:
+        data['hasMore'] = len(selected) > 10
+    return JsonResponse(data)
 
 
 @require_http_methods(['POST', 'PATCH', 'DELETE'])

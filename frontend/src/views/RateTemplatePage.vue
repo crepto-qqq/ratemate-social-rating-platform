@@ -4,11 +4,19 @@ import { apiBaseUrl, apiFetch } from '../api.js'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import AppLayout from '../components/AppLayout.vue'
+import ListPagination from '../components/ListPagination.vue'
 
 
 const mode = ref('new')
 const step = ref(1)
 const activeTemplate = ref(null)
+const ratingPage = ref(1)
+const favoritesPage = ref(1)
+const historyPage = ref(1)
+const rankingPage = ref(1)
+const favoritesHasMore = ref(false)
+const historyHasMore = ref(false)
+const ratingSection = ref(null)
 const editingResultId = ref(null)
 const ratings = reactive({})
 const error = ref('')
@@ -26,6 +34,7 @@ const failedImages = ref(new Set())
 const aiGeneratingTemplateId = ref(null)
 const aiTakeErrors = reactive({})
 const steps = ['Choose template', 'Rate every item', 'Ranking']
+const itemsPerPage = 10
 
 usePageTitle(() => mode.value === 'history' ? 'My results' : step.value > 1 ? activeTemplate.value?.title : '')
 
@@ -33,6 +42,18 @@ const totalRatings = computed(() => activeTemplate.value ? activeTemplate.value.
 const completedRatings = computed(() => Object.values(ratings).filter(score => score > 0).length)
 const allRated = computed(() => totalRatings.value > 0 && completedRatings.value === totalRatings.value)
 const ranking = computed(() => calculateRanking(activeTemplate.value, ratings))
+const ratingPageCount = computed(() => Math.ceil((activeTemplate.value?.items.length || 0) / itemsPerPage))
+const ratingPageStart = computed(() => (ratingPage.value - 1) * itemsPerPage)
+const visibleRatingItems = computed(() => activeTemplate.value?.items.slice(ratingPageStart.value, ratingPageStart.value + itemsPerPage) || [])
+const rankingPageCount = computed(() => Math.ceil(ranking.value.length / itemsPerPage))
+const visibleRanking = computed(() => ranking.value.slice((rankingPage.value - 1) * itemsPerPage, rankingPage.value * itemsPerPage))
+
+function goToRatingPage(page) {
+  if (!Number.isInteger(page) || page < 1 || page > ratingPageCount.value || page === ratingPage.value) return
+  ratingPage.value = page
+  error.value = ''
+  ratingSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 function ratingKey(itemId, criterionId) {
   return `${itemId}:${criterionId}`
@@ -51,6 +72,8 @@ function calculateRanking(template, scoreSource) {
 
 function resetRating() {
   activeTemplate.value = null
+  ratingPage.value = 1
+  rankingPage.value = 1
   editingResultId.value = null
   Object.keys(ratings).forEach(key => delete ratings[key])
   error.value = ''
@@ -70,14 +93,17 @@ function switchMode(nextMode) {
   if (nextMode === 'history') loadResults()
 }
 
-async function loadFavorites() {
+async function loadFavorites(nextPage = 1) {
+  favoritesPage.value = nextPage
   favoritesLoading.value = true
   favoritesError.value = ''
   try {
-    const response = await apiFetch(`${apiBaseUrl}/api/templates/favorites/`)
+    const response = await apiFetch(`${apiBaseUrl}/api/templates/favorites/?page=${nextPage}`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load your favorites.')
+    if (nextPage > 1 && !data.templates?.length) return loadFavorites(nextPage - 1)
     favoriteTemplates.value = data.templates || []
+    favoritesHasMore.value = Boolean(data.hasMore)
   } catch (requestError) {
     favoritesError.value = requestError.message || 'Unable to connect to the server.'
   } finally {
@@ -170,17 +196,22 @@ async function showRanking() {
     return
   }
   step.value = 3
+  rankingPage.value = 1
   await saveResult()
 }
 
-async function loadResults() {
+async function loadResults(nextPage = 1) {
+  historyPage.value = nextPage
   resultsLoading.value = true
   resultsError.value = ''
   try {
-    const response = await apiFetch(`${apiBaseUrl}/api/ratings/`)
+    const response = await apiFetch(`${apiBaseUrl}/api/ratings/?page=${nextPage}`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.detail || 'Unable to load your rating results.')
-    results.value = Array.isArray(data) ? data : data.results || []
+    const incoming = Array.isArray(data) ? data : data.results || []
+    if (nextPage > 1 && !incoming.length) return loadResults(nextPage - 1)
+    results.value = incoming
+    historyHasMore.value = Boolean(data.hasMore)
   } catch (requestError) {
     resultsError.value = requestError.message || 'Unable to connect to the server.'
   } finally {
@@ -191,6 +222,7 @@ async function loadResults() {
 function editResult(result) {
   if (result.templateHidden) return
   activeTemplate.value = result.template
+  ratingPage.value = 1
   editingResultId.value = result.id
   savedResultId.value = result.id
   isPublic.value = result.isPublic
@@ -258,6 +290,7 @@ async function deleteResult(result) {
       const template = favoriteTemplates.value.find(entry => entry.id === result.template.id)
       if (template) template.hasAiTake = false
     }
+    await loadResults(results.value.length || historyPage.value === 1 ? historyPage.value : historyPage.value - 1)
   } catch (requestError) {
     result.actionError = requestError.message
   }
@@ -281,9 +314,9 @@ onMounted(loadFavorites)
     </div>
 
     <section v-if="mode === 'history'" class="rate-content">
-      <div class="history-heading"><div><h1>My rating results</h1><p>Review your own ratings and AI-generated takes.</p></div><button class="action-button" type="button" @click="loadResults">Refresh</button></div>
+      <div class="history-heading"><div><h1>My rating results</h1><p>Review your own ratings and AI-generated takes.</p></div><button class="action-button" type="button" @click="loadResults(historyPage)">Refresh</button></div>
       <div v-if="resultsLoading" class="history-state">Loading your results…</div>
-      <div v-else-if="resultsError" class="history-state error-state"><p>{{ resultsError }}</p><button class="text-button" type="button" @click="loadResults">Try again</button></div>
+      <div v-else-if="resultsError" class="history-state error-state"><p>{{ resultsError }}</p><button class="text-button" type="button" @click="loadResults(historyPage)">Try again</button></div>
       <div v-else-if="!results.length" class="history-state"><h2>No rating results yet</h2><p>Complete your first rating to see it here.</p><button class="action-button primary" type="button" @click="switchMode('new')">Start a rating</button></div>
       <div v-else class="history-list">
         <article v-for="result in results" :key="`${result.resultType}-${result.id}`" class="history-card" :class="{ 'ai-history-card': result.resultType === 'ai' }">
@@ -293,6 +326,7 @@ onMounted(loadFavorites)
           <p v-if="result.actionError" class="rate-error">{{ result.actionError }}</p>
           <div class="history-actions"><button v-if="result.resultType !== 'ai' && !result.templateHidden" class="action-button" type="button" @click="editResult(result)">Edit ratings</button><button v-if="!result.templateHidden" class="action-button" type="button" @click="toggleResultVisibility(result)">{{ result.isPublic ? 'Make private' : 'Make public' }}</button><button class="text-button danger" type="button" @click="deleteResult(result)">Delete</button></div>
         </article>
+        <ListPagination :page="historyPage" :has-more="historyHasMore" label="My rating results" @change="loadResults" />
       </div>
     </section>
 
@@ -302,14 +336,20 @@ onMounted(loadFavorites)
       <section v-if="step === 1" class="rate-content">
         <h1>Choose from your favorites</h1><p class="editor-description">Only templates in your favorites can be used for a new rating.</p>
         <div v-if="favoritesLoading" class="history-state">Loading your favorite templates…</div>
-        <div v-else-if="favoritesError" class="history-state error-state"><p>{{ favoritesError }}</p><button class="text-button" type="button" @click="loadFavorites">Try again</button></div>
+        <div v-else-if="favoritesError" class="history-state error-state"><p>{{ favoritesError }}</p><button class="text-button" type="button" @click="loadFavorites(favoritesPage)">Try again</button></div>
         <div v-else-if="!favoriteTemplates.length" class="history-state"><h2>Your favorites are empty</h2><p>Create a template or add one to your favorites before starting a rating.</p><RouterLink class="action-button primary" to="/create">Create a template</RouterLink></div>
         <div v-else class="template-picker"><article v-for="entry in favoriteTemplates" :key="entry.id" class="template-option"><button type="button" class="template-select" @click="chooseTemplate(entry)"><img v-if="entry.items[0]?.imageUrl && !failedImages.has(entry.id)" :src="entry.items[0].imageUrl" :alt="entry.title" @error="failedImages = new Set([...failedImages, entry.id])"><span v-else class="template-image-fallback"><AppIcon name="star" /></span><span class="detail-category">Favorite · {{ entry.popularity }} saves</span><strong>{{ entry.title }}</strong><small>{{ entry.criteria.length }} criteria · {{ entry.items.length }} items</small><span class="choose-label">Use this template <AppIcon name="chevron" /></span></button><div v-if="entry.isOwner" class="ai-take-action"><button v-if="!entry.hasAiTake" class="action-button ai-rate-button" type="button" :disabled="aiGeneratingTemplateId !== null" @click="generateAiTake(entry)"><AppIcon name="sparkle" />{{ aiGeneratingTemplateId === entry.id ? 'AI is rating…' : 'Rate by AI' }}</button><span v-else class="ai-ready"><AppIcon name="sparkle" />AI rating ready</span><p v-if="aiTakeErrors[entry.id]" class="rate-error">{{ aiTakeErrors[entry.id] }}</p></div></article></div>
+        <ListPagination v-if="!favoritesLoading && !favoritesError && favoriteTemplates.length" :page="favoritesPage" :has-more="favoritesHasMore" label="Favorite templates" @change="loadFavorites" />
       </section>
 
-      <section v-else-if="step === 2 && activeTemplate" class="rate-content">
+      <section v-else-if="step === 2 && activeTemplate" ref="ratingSection" class="rate-content">
         <div class="rate-heading-row"><div><button v-if="!editingResultId" class="text-button" type="button" @click="resetRating"><AppIcon name="back" />Choose another template</button><h1>{{ activeTemplate.title }}</h1><p class="editor-description">{{ completedRatings }} of {{ totalRatings }} ratings completed.</p></div><div class="progress-ring">{{ Math.round(completedRatings / totalRatings * 100) }}%</div></div>
-        <div class="rate-item-list"><article v-for="(item, itemIndex) in activeTemplate.items" :key="item.id" class="rate-item-card"><div class="rate-item-title"><span>{{ itemIndex + 1 }}</span><h2>{{ item.name }}</h2></div><div v-for="criterion in activeTemplate.criteria" :key="criterion.id" class="rate-criterion-row"><div><strong>{{ criterion.name }}</strong><small>Weight {{ criterion.weight }}</small></div><div class="stars"><button v-for="score in 5" :key="score" type="button" :class="{ selected: score <= (ratings[ratingKey(item.id, criterion.id)] || 0) }" :aria-label="`${item.name}: ${criterion.name}, ${score} stars`" :aria-pressed="score === (ratings[ratingKey(item.id, criterion.id)] || 0)" @click="setRating(item.id, criterion.id, score)"><AppIcon name="star" /></button></div></div></article></div>
+        <div class="rate-item-list"><article v-for="(item, itemIndex) in visibleRatingItems" :key="item.id" class="rate-item-card"><div class="rate-item-title"><span>{{ ratingPageStart + itemIndex + 1 }}</span><h2>{{ item.name }}</h2></div><div v-for="criterion in activeTemplate.criteria" :key="criterion.id" class="rate-criterion-row"><div><strong>{{ criterion.name }}</strong><small>Weight {{ criterion.weight }}</small></div><div class="stars"><button v-for="score in 5" :key="score" type="button" :class="{ selected: score <= (ratings[ratingKey(item.id, criterion.id)] || 0) }" :aria-label="`${item.name}: ${criterion.name}, ${score} stars`" :aria-pressed="score === (ratings[ratingKey(item.id, criterion.id)] || 0)" @click="setRating(item.id, criterion.id, score)"><AppIcon name="star" /></button></div></div></article></div>
+        <nav v-if="ratingPageCount > 1" class="rating-pagination" aria-label="Rating item pages">
+          <button class="action-button" type="button" :disabled="ratingPage === 1" @click="goToRatingPage(ratingPage - 1)">Previous</button>
+          <label>Page <select :value="ratingPage" aria-label="Rating page" @change="goToRatingPage(Number($event.target.value))"><option v-for="pageNumber in ratingPageCount" :key="pageNumber" :value="pageNumber">{{ pageNumber }}</option></select> of {{ ratingPageCount }} <span>· Items {{ ratingPageStart + 1 }}–{{ Math.min(ratingPageStart + itemsPerPage, activeTemplate.items.length) }} of {{ activeTemplate.items.length }}</span></label>
+          <button class="action-button" type="button" :disabled="ratingPage === ratingPageCount" @click="goToRatingPage(ratingPage + 1)">Next</button>
+        </nav>
         <p v-if="error" class="rate-error" role="alert">{{ error }}</p>
         <div class="rate-footer"><span>All fields are required; the result saves automatically after completion.</span><button class="action-button primary" type="button" :disabled="!allRated" @click="showRanking">{{ editingResultId ? 'Update and view ranking' : 'View ranking' }}</button></div>
       </section>
@@ -317,13 +357,19 @@ onMounted(loadFavorites)
       <section v-else-if="activeTemplate" class="rate-content ranking-result">
         <div class="ranking-header"><div><div class="eyebrow">RATING COMPLETE</div><h1>Your ranking</h1><p>{{ activeTemplate.title }}</p></div><button class="action-button" type="button" @click="switchMode('history')">View my results</button></div>
         <div class="result-save-status" :class="saveStatus" role="status"><template v-if="saveStatus === 'saving'"><span class="save-dot" />Saving your rating result…</template><template v-else-if="saveStatus === 'saved'"><span>✓ Rating result saved<span v-if="savedResultId"> · ID {{ savedResultId }}</span></span><button class="text-button" type="button" @click="toggleCurrentVisibility">{{ isPublic ? 'Make private' : 'Make public' }}</button></template><template v-else-if="saveStatus === 'error'"><span>{{ saveError }}</span><button class="text-button" type="button" @click="saveResult">Try again</button></template></div>
-        <div class="results-list"><article v-for="(item, index) in ranking" :key="item.id" class="result-row"><span class="result-rank">{{ index + 1 }}</span><div><strong>{{ item.name }}</strong><small>{{ activeTemplate.criteria.length }} weighted criteria</small></div><b>{{ item.score.toFixed(1) }}</b></article></div>
+        <div class="results-list"><article v-for="(item, index) in visibleRanking" :key="item.id" class="result-row"><span class="result-rank">{{ (rankingPage - 1) * itemsPerPage + index + 1 }}</span><div><strong>{{ item.name }}</strong><small>{{ activeTemplate.criteria.length }} weighted criteria</small></div><b>{{ item.score.toFixed(1) }}</b></article></div>
+        <ListPagination :page="rankingPage" :total-pages="rankingPageCount" label="Your ranking" @change="rankingPage = $event" />
       </section>
     </template>
   </AppLayout>
 </template>
 
 <style scoped>
+.rating-pagination{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:24px;color:var(--text-secondary);font-size:13px}
+.rating-pagination label{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rating-pagination select{padding:6px 8px;border:1px solid var(--surface-green-border);border-radius:6px;background:#fff;color:#273326}
+.rating-pagination button:disabled{opacity:.45;cursor:default}
+@media(max-width:620px){.rating-pagination label{order:-1;width:100%;justify-content:center}}
 .rating-page-heading { align-items: flex-end; }.rating-mode-tabs{display:flex;gap:5px;padding:4px;border-radius:10px;background:var(--panel-background)}.rating-mode-tabs button{padding:9px 14px;border:0;border-radius:7px;background:transparent;color:var(--text-green);font-weight:600}.rating-mode-tabs button.active{background:var(--green);color:#fff;font-weight:700}.rate-steps button:disabled{cursor:default;opacity:1}.rate-content{max-width:1100px;margin:0 auto;padding-bottom:42px}.rate-content>h1{font-size:30px}.template-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:28px}.template-option{position:relative;display:flex;flex-direction:column;align-items:flex-start;overflow:hidden;padding:0 0 18px;border:1px solid var(--surface-green-border);border-radius:12px;background:#fff;color:#273326;text-align:left}.template-option:hover{border-color:#a8b99c;transform:translateY(-2px)}.template-select{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left}.template-option img{width:100%;height:150px;object-fit:cover}.template-image-fallback{display:flex;align-items:center;justify-content:center;width:100%;height:150px;background:#e9eee2;color:#537048}.template-image-fallback svg{width:35px;height:35px}.template-option .detail-category{margin:15px 16px 8px}.template-option strong{padding:0 16px;font-size:15px;line-height:1.45}.template-option small{padding:8px 16px 0;color:var(--text-secondary)}.choose-label{display:flex;align-items:center;gap:5px;margin:15px 16px 0;color:var(--green);font-size:13px;font-weight:700}.choose-label svg{width:15px;height:15px}.ai-take-action{width:calc(100% - 32px);margin:14px 16px 0;padding-top:14px;border-top:1px solid var(--line)}.ai-rate-button{display:flex;align-items:center;justify-content:center;gap:7px;width:100%}.ai-rate-button svg,.ai-ready svg,.ai-result-badge svg{width:15px;height:15px}.ai-ready,.ai-result-badge{display:inline-flex;align-items:center;gap:6px;color:#5c477c;font-size:12px;font-weight:700}.ai-result-badge{padding:6px 10px;border-radius:6px;background:#f0eafa}.result-badges{display:flex;flex-wrap:wrap;gap:7px}.ai-take-action .rate-error{margin:10px 0 0}.rate-heading-row,.ranking-header,.history-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:28px}.history-heading h1,.history-heading p{margin:0 0 9px}.history-heading p{color:var(--text-secondary)}.progress-ring{display:flex;align-items:center;justify-content:center;width:68px;height:68px;border:6px solid #dfe8d9;border-top-color:var(--green);border-radius:50%;color:var(--green);font-size:13px;font-weight:700}.rate-item-list,.history-list{display:grid;gap:16px}.rate-item-card,.history-card{padding:20px 24px;border:1px solid var(--surface-green-border);border-radius:12px;background:#fff}.ai-history-card{border:2px solid #8b73ad;background:#fcfaff}.rate-item-title{display:flex;align-items:center;gap:12px;padding-bottom:15px}.rate-item-title span{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#e9f0e4;color:var(--green)}.rate-item-title h2{margin:0;font-size:18px}.rate-criterion-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:13px 0;border-top:1px solid var(--line)}.rate-criterion-row strong,.rate-criterion-row small{display:block}.rate-criterion-row small{margin-top:4px;color:var(--text-secondary);font-size:11px}.rate-error{color:#a74842;font-size:13px}.rate-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}.rate-footer span{color:var(--text-secondary);font-size:12px}.ranking-header p{margin:10px 0 0;color:var(--text-secondary)}.result-save-status{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;margin-bottom:18px;padding:10px 14px;border-radius:9px;background:#f3f6f0;color:var(--text-secondary);font-size:13px}.result-save-status.saved{background:#e8f2e5;color:#31573b}.result-save-status.error{background:#faefec;color:#9b443d}.save-dot{width:8px;height:8px;border-radius:50%;background:#668258;animation:save-pulse .8s ease-in-out infinite alternate}@keyframes save-pulse{to{opacity:.3}}.history-state{padding:65px 30px;border:1px dashed var(--surface-green-border);border-radius:12px;text-align:center;color:var(--text-secondary)}.error-state{color:#9b443d}.history-card-heading{display:flex;justify-content:space-between;gap:20px}.history-card-heading h2{margin:12px 0 6px;font-size:18px}.history-card-heading small{color:var(--text-secondary)}.history-card-heading>strong{color:var(--green);font-size:25px}.history-card ol{list-style:none;margin:20px 0;padding:0;border-top:1px solid var(--line)}.history-card li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.history-card li span{color:var(--text-secondary)}.history-card li b{margin-left:auto}.history-actions{display:flex;align-items:center;gap:10px;margin-top:18px}.danger{margin-left:auto;color:#a44b43}
 @media(max-width:1000px){.template-picker{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.rating-page-heading,.rate-heading-row,.ranking-header,.rate-footer,.rate-criterion-row,.history-heading{align-items:flex-start;flex-direction:column}.template-picker{grid-template-columns:1fr}.rating-mode-tabs{width:100%}.rating-mode-tabs button{flex:1}.history-actions{align-items:stretch;flex-direction:column}.danger{margin-left:0}}
 
