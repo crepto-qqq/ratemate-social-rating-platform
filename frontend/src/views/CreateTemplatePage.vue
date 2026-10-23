@@ -4,6 +4,13 @@ import { computed, reactive, ref } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 
 
+// These IDs only identify draft rows within this component instance.
+let nextDraftId = 0
+
+function createDraftId() {
+  return `draft-${++nextDraftId}`
+}
+
 const step = ref(1)
 const weightErrors = reactive({})
 const saving = ref(false)
@@ -12,15 +19,15 @@ const createdTemplate = ref(null)
 const draft = reactive({
   title: '',
   description: '',
-  criteria: [{ id: crypto.randomUUID(), name: '', weight: 1 }],
-  items: [{ id: crypto.randomUUID(), name: '', image: null, imageUrl: '' }],
+  criteria: [{ id: createDraftId(), name: '', weight: 1 }],
+  items: [{ id: createDraftId(), name: '', image: null, imageUrl: '' }],
 })
 
 const steps = ['Template details', 'Rating criteria', 'Items to rate']
 const readyToSave = computed(() => draft.items.length > 0 && draft.items.every(item => item.name.trim() && item.image))
 
 function addCriterion() {
-  draft.criteria.push({ id: crypto.randomUUID(), name: '', weight: 1 })
+  draft.criteria.push({ id: createDraftId(), name: '', weight: 1 })
 }
 
 function removeCriterion(id) {
@@ -59,7 +66,7 @@ function goBack(targetStep) {
 }
 
 function addItem() {
-  draft.items.push({ id: crypto.randomUUID(), name: '', image: null, imageUrl: '' })
+  draft.items.push({ id: createDraftId(), name: '', image: null, imageUrl: '' })
 }
 
 function removeItem(id) {
