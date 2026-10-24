@@ -159,23 +159,23 @@ watch(commentKind, () => {
 
 function openAction(kind, item) {
   const config = {
-    hide: {
+    hide: () => ({
       title: 'Hide template',
       target: item.title,
       explanation: 'The template and its public ratings will no longer be visible to the community. Their data is kept so the template can be restored.',
       button: 'Hide template',
       endpoint: `templates/${item.id}/hide/`,
       success: 'Template hidden.',
-    },
-    restore: {
+    }),
+    restore: () => ({
       title: 'Restore template',
       target: item.title,
       explanation: 'The template and its retained public ratings will become visible again.',
       button: 'Restore template',
       endpoint: `templates/${item.id}/restore/`,
       success: 'Template restored.',
-    },
-    removeRating: {
+    }),
+    removeRating: () => ({
       title: 'Permanently remove public rating',
       target: `${item.owner.name}’s rating of ${item.templateTitle}`,
       explanation: 'This rating post and its comments and likes will be permanently deleted. This cannot be undone.',
@@ -183,8 +183,8 @@ function openAction(kind, item) {
       endpoint: `ratings/${item.id}/remove/`,
       success: 'Public rating removed.',
       destructive: true,
-    },
-    removeComment: {
+    }),
+    removeComment: () => ({
       title: 'Permanently remove comment',
       target: `${item.author.name}’s comment on ${item.postTitle}`,
       explanation: 'The comment will be permanently deleted. Its author will receive a moderation notice. This cannot be undone.',
@@ -192,8 +192,8 @@ function openAction(kind, item) {
       endpoint: `comments/${item.kind}/${item.id}/remove/`,
       success: 'Comment removed.',
       destructive: true,
-    },
-  }[kind]
+    }),
+  }[kind]()
   pendingAction.value = config
   reason.value = ''
   actionError.value = ''
