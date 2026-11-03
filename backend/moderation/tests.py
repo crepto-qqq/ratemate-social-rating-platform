@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
 from accounts.profiles import ensure_profile
+from accounts.testing import verified_force_login
 from create_template.models import Comment, Favorite, Template
 from notifications.models import Notification
 from rating.models import RatingResult, RatingResultComment, RatingResultLike
@@ -31,7 +32,7 @@ class ModerationTests(TestCase):
         self.rating_comment = RatingResultComment.objects.create(
             result=self.rating, author=self.comment_author, content='Rating comment body',
         )
-        self.client.force_login(self.admin_user)
+        verified_force_login(self.client, self.admin_user)
 
     def post_reason(self, url, reason='Policy violation', client=None):
         return (client or self.client).post(
@@ -44,7 +45,7 @@ class ModerationTests(TestCase):
         for url in urls:
             self.assertEqual(self.client.get('/api/moderation/' + url).status_code, 200)
 
-        self.client.force_login(self.template_user)
+        verified_force_login(self.client, self.template_user)
         self.assertFalse(self.client.get('/api/moderation/me/').json()['isAdmin'])
         for url in urls:
             self.assertEqual(self.client.get('/api/moderation/' + url).status_code, 403)
@@ -161,7 +162,7 @@ class ModerationTests(TestCase):
 
     def test_mutations_require_csrf(self):
         client = Client(enforce_csrf_checks=True)
-        client.force_login(self.admin_user)
+        verified_force_login(client, self.admin_user)
         url = f'/api/moderation/templates/{self.template.pk}/hide/'
         self.assertEqual(self.post_reason(url, client=client).status_code, 403)
         token = client.get('/api/auth/csrf/').json()['csrfToken']

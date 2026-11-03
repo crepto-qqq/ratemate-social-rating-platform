@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from accounts.models import User_profile
+from accounts.profiles import current_profile
 from create_template.models import Comment, Template
 from rating.models import RatingResult, RatingResultComment
 from rating.views import _result_data
@@ -21,7 +22,7 @@ PAGE_SIZE = 20
 def staff_required(view):
     @wraps(view)
     def guarded(request, *args, **kwargs):
-        if not request.user.is_authenticated:
+        if current_profile(request) is None:
             return JsonResponse({'detail': 'Log in to manage content.'}, status=401)
         if not (request.user.is_staff or request.user.is_superuser):
             return JsonResponse({'detail': 'Administrator access required.'}, status=403)
@@ -93,7 +94,7 @@ def _success(message, action):
 
 @require_GET
 def me_view(request):
-    return JsonResponse({'isAdmin': request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)})
+    return JsonResponse({'isAdmin': current_profile(request) is not None and (request.user.is_staff or request.user.is_superuser)})
 
 
 @staff_required
