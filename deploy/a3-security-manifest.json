@@ -1,0 +1,25 @@
+{
+  "base_commit": "6f721c93fe9a2cc1d5f27842a5e30ef774fa1b81",
+  "files": {
+    "backend/accounts/migrations/0005_loginthrottle.py": "a8f6d25be5648cfef20cb4a877ea7eb183f6e405ae3b06ae35c624d121bab2b6",
+    "backend/accounts/models.py": "19efc0ca701c9429b4c02ea95847367bf7fc60edd4fc0f4ae65795b9d78aaf2b",
+    "backend/accounts/test_security.py": "0733ce6a912a356e2eac58bff5bf4953812bd6afe4abe3cfbe62091cc8a13440",
+    "backend/accounts/throttling.py": "1f3de29c960348424c9279d6b46bf2209fb49e077fe9c24c236e1062e5aab16e",
+    "backend/accounts/views.py": "0a6fd67dce038a0fe28b4fdd340d8ba3845976c4e81ef3ea6a42d8dd338b3f0b",
+    "backend/config/errors.py": "31eba8e04141ccf9dde8fc2c874b21503ba2ba1a3cfb73c82fea3ec45e7e5ee0",
+    "backend/config/settings.py": "b1da919118e098dd76dad6b6df92785505ce516907fa1770746e3aad69d4d8a6",
+    "backend/config/test_security.py": "1d6da65cf7475532c759f719639616344e65514b57a533ba9ab877c41da7ca29",
+    "backend/config/test_uploads.py": "a27d31ca4a3604d5519431fc567bb166e025c90eb39b567eb0ed14ebf4426040",
+    "backend/config/uploads.py": "c7e878f2bda829894fa735fbbc0076847b148d936b4ce224f038c9e5f24fe64a",
+    "backend/config/urls.py": "a583ea48651227271114972af69067f9a4f89bbca8acef193fdd23da99b767ed",
+    "backend/create_template/views.py": "34f24e704d35c17417dde17d5a7bf174d08918e769c483fd4470cb14a67844e5",
+    "backend/moderation/tests.py": "751cd2035cb8cf9ac032bb0a6aef49e126a330f07debb037b363db4e5644e0f3",
+    "backend/moderation/views.py": "a1f91c996bebbb1bc71c4a5b26e5d86d19ba6c3c918343b9a0ad83a050f4a974",
+    "backend/rating/public_views.py": "f7aa55c464cfe0ffdf85ea25d9d62157d0b3bf318ec8be3ac57c7a6e5caba81f",
+    "deploy/A3_SECURITY_UPDATE.md": "f1b37888831695df0123925b7cce0881c0d96d573a3a5a438834cae6fcb2a9da",
+    "deploy/a3-security-permissions.sql": "7312f17bab424c44be3535df758f00ee89e5222437c8b0b92cb34cc49fcc5814",
+    "deploy/nginx-security.locations.conf": "ea8483074d63ea4eec38f2fd744a84170fd6b496fa1cee15d9e80886a6296e15",
+    "deploy/verify_login_limit.py": "625e3f28f7bbb55864051b6e5a53154f77aa1a2f3623c6d3a1c3d7f9617ad758",
+    "deploy/verify_release.py": "2b3bbaf04c1e698b4b7ffb05bbbb2a9ffa74a55da6f7573325e6f6925404b718"
+  }
+}

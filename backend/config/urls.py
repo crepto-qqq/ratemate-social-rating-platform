@@ -31,3 +31,8 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+handler400 = 'config.errors.bad_request'
+handler403 = 'config.errors.permission_denied'
+handler404 = 'config.errors.not_found'
+handler500 = 'config.errors.server_error'

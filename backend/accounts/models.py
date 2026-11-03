@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 import uuid
+from django.utils import timezone
 
 
 class User_profile(models.Model):
@@ -53,3 +54,9 @@ class OtpChallenge(models.Model):
     last_sent_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)
     consumed = models.BooleanField(default=False)
+
+
+class LoginThrottle(models.Model):
+    key = models.CharField(max_length=64, primary_key=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    window_started_at = models.DateTimeField(default=timezone.now)

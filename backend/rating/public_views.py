@@ -192,7 +192,7 @@ def comment_collection_view(request, result_id):
 
 @require_http_methods(['PATCH', 'DELETE'])
 def comment_detail_view(request, result_id, comment_id):
-    if not request.user.is_authenticated:
+    if current_profile(request) is None:
         return JsonResponse({'detail': 'Log in to manage comments.'}, status=401)
     comment = get_object_or_404(RatingResultComment.objects.select_related('author'), pk=comment_id, result_id=result_id)
     if request.method != 'DELETE' and not public_results().filter(pk=result_id).exists():

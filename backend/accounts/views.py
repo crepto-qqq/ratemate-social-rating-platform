@@ -21,6 +21,8 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import AccountSecurity, OtpChallenge, User_profile
 from .profiles import current_profile, ensure_profile
+from .throttling import reserve_login_attempt
+from config.uploads import sanitize_image
 
 
 @never_cache
@@ -218,7 +220,14 @@ def login_view(request):
     username, password, error = _credentials(request)
     if error:
         return error
+    retry_after = reserve_login_attempt(username)
+    if retry_after:
+        response = _error('Too many sign-in attempts. Try again later.', 429)
+        response['Retry-After'] = str(retry_after)
+        return response
     user = get_user_model().objects.filter(username=username).first()
+    if user is None:
+        make_password(password)
     if user is None or not user.check_password(password):
         return _error('Invalid username or password.', 401)
     security = AccountSecurity.objects.filter(user=user).first()
@@ -436,6 +445,11 @@ def profile_view(request):
         return _error('Avatar must be JPG, PNG or WebP.')
     if avatar and avatar.size > 5 * 1024 * 1024:
         return _error('Avatar must be at most 5 MB.')
+    if avatar:
+        try:
+            avatar = sanitize_image(avatar)
+        except ValidationError as exc:
+            return _error(exc.messages[0])
     profile.userName = username
     profile.bio = bio
     if password:

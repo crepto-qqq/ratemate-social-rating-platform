@@ -1,6 +1,8 @@
 import json
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from config.uploads import sanitize_image
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
@@ -129,6 +131,10 @@ def create_template_view(request):
             return JsonResponse({'detail': '对象图片必须是 JPG、PNG 或 WebP。'}, status=400)
         if image and image.size > 5 * 1024 * 1024:
             return JsonResponse({'detail': '对象图片不能超过 5 MB。'}, status=400)
+        try:
+            image = sanitize_image(image)
+        except ValidationError as exc:
+            return JsonResponse({'detail': exc.messages[0]}, status=400)
         normalized_items.append({'name': name, 'image': image, 'order': index})
 
     with transaction.atomic():

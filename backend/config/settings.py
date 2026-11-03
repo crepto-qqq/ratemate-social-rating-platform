@@ -158,3 +158,5 @@ EMAIL_TIMEOUT = 10
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
 OPENAI_TIMEOUT = int(os.environ.get('OPENAI_TIMEOUT', '45'))
+
+CSRF_FAILURE_VIEW = 'config.errors.csrf_failure'
