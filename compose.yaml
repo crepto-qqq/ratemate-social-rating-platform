@@ -17,6 +17,7 @@ services:
     build: ./backend
     command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
     environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-public-development-only-not-for-production-CHANGE-ME}
       RATEMATE_DB_PASSWORD: ${RATEMATE_DB_PASSWORD:?Set RATEMATE_DB_PASSWORD in root .env}
       RATEMATE_DB_HOST: db
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
@@ -54,6 +55,7 @@ services:
     build: ./backend
     command: python manage.py embed_templates --watch
     environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-public-development-only-not-for-production-CHANGE-ME}
       RATEMATE_DB_PASSWORD: ${RATEMATE_DB_PASSWORD:?Set RATEMATE_DB_PASSWORD in root .env}
       RATEMATE_DB_HOST: db
       EMBEDDING_CACHE_DIR: /models
